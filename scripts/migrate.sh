@@ -18,6 +18,21 @@ if [ "$CF_PAGES" != "1" ] && [ -z "$CLOUDFLARE_API_TOKEN" ] && [ -z "$CF_ACCOUNT
     exit 0
 fi
 
+# Check that database_id is configured with a real UUID (not the placeholder)
+DATABASE_ID=$(grep 'database_id' wrangler.toml 2>/dev/null | head -1 | sed 's/.*=\s*"\([^"]*\)".*/\1/')
+if [ -z "$DATABASE_ID" ] || [ "$DATABASE_ID" = "your_database_id_here" ]; then
+    echo "⚠️  Warning: database_id is not configured in wrangler.toml"
+    echo "   Please replace 'your_database_id_here' with a valid D1 database UUID"
+    echo "   Skipping remote migrations..."
+    exit 0
+fi
+if ! echo "$DATABASE_ID" | grep -qE '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'; then
+    echo "⚠️  Warning: database_id '$DATABASE_ID' is not a valid UUID"
+    echo "   Please set a valid D1 database UUID in wrangler.toml"
+    echo "   Skipping remote migrations..."
+    exit 0
+fi
+
 # Apply migrations to the remote database (production/staging)
 echo "📡 Applying migrations to remote database..."
 if ! wrangler d1 migrations apply "$DATABASE_NAME" --remote; then
