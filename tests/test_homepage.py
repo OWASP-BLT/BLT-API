@@ -137,3 +137,31 @@ class TestHomepageHandler:
             # Check for security: should use textContent, not innerHTML for responses
             assert "textContent = JSON.stringify" in content
 
+    @pytest.mark.asyncio
+    async def test_homepage_contains_database_stats_section(self):
+        """Test that homepage contains the live database stats section."""
+        request = MockRequest()
+        env = MockEnv()
+
+        response = await handle_homepage(
+            request,
+            env,
+            path_params={},
+            query_params={},
+            path="/"
+        )
+
+        if hasattr(response, 'body'):
+            content = response.body
+            # Check for stats section heading
+            assert "Live Database Stats" in content
+            # Check for individual stat element IDs
+            assert 'id="statBugs"' in content
+            assert 'id="statUsers"' in content
+            assert 'id="statHunts"' in content
+            assert 'id="statDomains"' in content
+            # Check for the JS function that loads stats
+            assert "loadDatabaseStats" in content
+            assert "baseUrl + '/stats'" in content
+            assert "console.error" in content
+

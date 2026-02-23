@@ -112,6 +112,35 @@ async def handle_homepage(
             </div>
         </section>
 
+        <!-- Database Stats Section -->
+        <section class="bg-white rounded-lg shadow p-4 mb-8">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-lg font-bold text-gray-900 flex items-center">
+                    <i class="fas fa-database text-red-600 mr-2"></i>
+                    Live Database Stats
+                </h2>
+                <span id="statsLastUpdated" class="text-xs text-gray-400 italic">Loading...</span>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div class="text-center p-3 bg-red-50 rounded-lg border border-red-100">
+                    <div class="text-3xl font-bold text-red-600" id="statBugs">—</div>
+                    <div class="text-xs text-gray-500 mt-1 font-medium"><i class="fas fa-bug mr-1"></i>Bugs Reported</div>
+                </div>
+                <div class="text-center p-3 bg-blue-50 rounded-lg border border-blue-100">
+                    <div class="text-3xl font-bold text-blue-600" id="statUsers">—</div>
+                    <div class="text-xs text-gray-500 mt-1 font-medium"><i class="fas fa-users mr-1"></i>Registered Users</div>
+                </div>
+                <div class="text-center p-3 bg-green-50 rounded-lg border border-green-100">
+                    <div class="text-3xl font-bold text-green-600" id="statHunts">—</div>
+                    <div class="text-xs text-gray-500 mt-1 font-medium"><i class="fas fa-crosshairs mr-1"></i>Bug Hunts</div>
+                </div>
+                <div class="text-center p-3 bg-purple-50 rounded-lg border border-purple-100">
+                    <div class="text-3xl font-bold text-purple-600" id="statDomains">—</div>
+                    <div class="text-xs text-gray-500 mt-1 font-medium"><i class="fas fa-globe mr-1"></i>Tracked Domains</div>
+                </div>
+            </div>
+        </section>
+
         <!-- Overview Section -->
         <section class="bg-white rounded-lg shadow p-6 mb-8">
             <h2 class="text-3xl font-bold text-gray-900 mb-6 text-center">Features</h2>
@@ -848,6 +877,28 @@ async def handle_homepage(
             }}
         }}
         
+        // Fetch and display live database stats
+        async function loadDatabaseStats() {{
+            try {{
+                const response = await fetch(baseUrl + '/stats');
+                const result = await response.json();
+                if (result.success && result.data) {{
+                    const d = result.data;
+                    document.getElementById('statBugs').textContent = (d.bugs || 0).toLocaleString();
+                    document.getElementById('statUsers').textContent = (d.users || 0).toLocaleString();
+                    document.getElementById('statHunts').textContent = (d.hunts || 0).toLocaleString();
+                    document.getElementById('statDomains').textContent = (d.domains || 0).toLocaleString();
+                    document.getElementById('statsLastUpdated').textContent = 'Updated at ' + new Date().toLocaleTimeString();
+                }} else {{
+                    document.getElementById('statsLastUpdated').textContent = 'Stats unavailable';
+                }}
+            }} catch (e) {{
+                console.error('Failed to load database stats:', e);
+                document.getElementById('statsLastUpdated').textContent = 'Stats unavailable';
+            }}
+        }}
+        loadDatabaseStats();
+
         // Close modal when clicking outside
         document.getElementById('apiTestModal').addEventListener('click', function(e) {{
             if (e.target === this) {{
