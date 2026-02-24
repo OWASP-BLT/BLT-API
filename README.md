@@ -1,10 +1,35 @@
 # BLT-API
 
 <p align="center">
-  <strong>Full-featured REST API for OWASP BLT running on Cloudflare Workers</strong>
+  <a href="https://github.com/OWASP-BLT/BLT-API">
+    <img src="https://raw.githubusercontent.com/OWASP-BLT/BLT/main/website/static/img/owasp_blt.png" alt="OWASP BLT Logo" width="180" />
+  </a>
 </p>
 
 <p align="center">
+  <strong>Full-featured REST API for OWASP BLT — running on Cloudflare Workers</strong>
+</p>
+
+<p align="center">
+  <a href="https://www.python.org/downloads/release/python-3120/">
+    <img src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white" alt="Python 3.12" />
+  </a>
+  <a href="https://developers.cloudflare.com/workers/">
+    <img src="https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white" alt="Cloudflare Workers" />
+  </a>
+  <a href="https://developers.cloudflare.com/d1/">
+    <img src="https://img.shields.io/badge/Cloudflare-D1%20SQLite-F38020?logo=cloudflare&logoColor=white" alt="Cloudflare D1" />
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/License-AGPL--3.0-blue.svg" alt="License: AGPL-3.0" />
+  </a>
+  <a href="https://owasp.org/www-project-bug-logging-tool/">
+    <img src="https://img.shields.io/badge/OWASP-BLT-red" alt="OWASP BLT" />
+  </a>
+</p>
+
+<p align="center">
+  <a href="#overview">Overview</a> •
   <a href="#features">Features</a> •
   <a href="#quick-start">Quick Start</a> •
   <a href="#api-endpoints">API Endpoints</a> •
@@ -22,17 +47,19 @@
 
 ## Overview
 
-BLT-API is a high-performance, edge-deployed REST API that interfaces with all aspects of the [OWASP BLT (Bug Logging Tool)](https://github.com/OWASP-BLT/BLT) project. Built using Python on Cloudflare Workers, it provides efficient, globally-distributed access to BLT's bug bounty platform.
+BLT-API is a high-performance, edge-deployed REST API that interfaces with all aspects of the [OWASP BLT (Bug Logging Tool)](https://github.com/OWASP-BLT/BLT) project. Built using Python on Cloudflare Workers, it provides efficient, globally-distributed access to BLT’s bug bounty platform.
 
 ## Features
 
-- 🚀 **Edge-deployed** - Runs on Cloudflare's global network for low latency
-- 🐍 **Python-powered** - Built with Python for Cloudflare Workers
-- �️ **D1 Database** - Uses Cloudflare D1 (SQLite) for data persistence
-- �🔒 **Secure** - CORS enabled, authentication support
-- 📊 **Full API Coverage** - Access to bugs, users, domains, organizations, projects, hunts, and more
-- 📖 **Well-documented** - Comprehensive API documentation
-- ⚡ **Fast** - Optimized for quick cold starts and efficient execution
+| | Feature | Description |
+|---|---|---|
+| 🚀 | **Edge-deployed** | Runs on Cloudflare’s global network for low latency worldwide |
+| 🐍 | **Python-powered** | Built with Python for Cloudflare Workers |
+| 🗄️ | **D1 Database** | Uses Cloudflare D1 (SQLite) for data persistence |
+| 🔒 | **Secure** | CORS enabled, JWT authentication support |
+| 📊 | **Full API Coverage** | Bugs, users, domains, organizations, projects, hunts, and more |
+| 📖 | **Well-documented** | Interactive API docs homepage + comprehensive README |
+| ⚡ | **Fast** | Optimized for quick cold starts and efficient execution |
 
 ## Quick Start
 
