@@ -3,9 +3,11 @@ Bugs handler for the BLT API.
 """
 
 from typing import Any, Dict
-from utils import json_response, error_response, paginated_response, parse_pagination_params, parse_json_body
+from utils import error_response, parse_pagination_params, parse_json_body, convert_d1_results
 from libs.db import get_db_safe
-from utils import convert_d1_results
+from models import Bug
+from workers import Response
+import logging
 
 async def handle_bugs(
     request: Any,
@@ -15,18 +17,35 @@ async def handle_bugs(
     path: str
 ) -> Any:
     """
-    Handle bugs-related requests.
+    Handle all bug-related API requests with full CRUD operations.
     
     Endpoints:
-        GET /bugs - List bugs with pagination and filters
-        GET /bugs/{id} - Get a specific bug
-        POST /bugs - Create a new bug
-        GET /bugs/search - Search bugs
+        GET /bugs - List bugs with pagination and optional filters (status, domain, verified)
+        GET /bugs/{id} - Get detailed bug info with screenshots and tags
+        POST /bugs - Create a new bug report (requires url and description)
+        GET /bugs/search - Search bugs by URL or description text (requires 'q' param)
+    
+    Query parameters for listing:
+        - page: Page number (default: 1)
+        - per_page: Items per page (default: 20, max: 100)
+        - status: Filter by bug status (e.g., 'open', 'closed')
+        - domain: Filter by domain ID
+        - verified: Filter by verification status ('true'/'false')
+    
+    Search parameters:
+        - q: Search query string (required for /bugs/search)
+        - limit: Max results (default: 10, max: 100)
+    
+    Returns:
+        JSON response with bug data, pagination info, or error on failure.
+        Single bug requests include nested screenshots and tags arrays.
     """
     method = str(request.method).upper()
+    logger = logging.getLogger(__name__)
     try: 
         db = await get_db_safe(env)  
     except Exception as e:
+        logger.error(f"Database connection error: {str(e)}")
         return error_response(f"Database connection error: {str(e)}", status=500)
     
     if path.endswith("/search"):
@@ -66,7 +85,7 @@ async def handle_bugs(
         ''').bind(f"%{query}%", f"%{query}%", limit_int).all()
         
         response_data = convert_d1_results(search_result.results if hasattr(search_result, 'results') else [])
-        return json_response({
+        return Response.json({
             "success": True,
             "query": query,
             "data": response_data
@@ -77,6 +96,7 @@ async def handle_bugs(
         try:
             bug_id = int(path_params["id"])
         except ValueError:
+            logger.warning(f"Invalid bug id format: {path_params['id']}")
             return error_response("Invalid bug id format", status=400)
 
         result = await db.prepare('''
@@ -151,7 +171,7 @@ async def handle_bugs(
         bug_data['screenshots'] = screenshots_data
         bug_data['tags'] = tags_data
         
-        return json_response({
+        return Response.json({
             "success": True,
             "data": bug_data
         })
@@ -241,69 +261,60 @@ async def handle_bugs(
                 else:
                     bug_data = {"id": last_id}
                 
-                return json_response({
+                return Response.json({
                     "success": True,
                     "message": "Bug created successfully",
                     "data": bug_data
                 }, status=201)
             else:
-                return json_response({
+                return Response.json({
                     "success": True,
                     "message": "Bug created successfully"
                 }, status=201)
                 
         except Exception as e:
+            logger.error(f"Error creating bug: {str(e)}")
             return error_response(f"Failed to create bug: {str(e)}", status=500)
     
     # List bugs with pagination
     page, per_page = parse_pagination_params(query_params)
-    
-    # Build WHERE conditions based on filters
-    where_conditions = []
-    params = []
-    
-    # Filter by status
-    status = query_params.get("status")
-    if status:
-        where_conditions.append("b.status = ?")
-        params.append(status)
-    
-    # Filter by domain
-    domain = query_params.get("domain")
-    if domain and domain.isdigit():
-        where_conditions.append("b.domain = ?")
-        params.append(int(domain))
-    
-    # Filter by verified
-    verified = query_params.get("verified")
-    if verified:
-        where_conditions.append("b.verified = ?")
-        params.append(1 if verified.lower() == "true" else 0)
-    
-    where_clause = " WHERE " + " AND ".join(where_conditions) if where_conditions else ""
-    
+
     try:
-        # Get total count
-        count_query = f'SELECT COUNT(*) as total FROM bugs b{where_clause}'
-        count_result = await db.prepare(count_query).bind(*params).first()
-        
-        # Handle count result
-        if count_result:
-            if hasattr(count_result, 'to_py'):
-                count_dict = count_result.to_py()
-                total = count_dict.get('total', 0)
-            elif hasattr(count_result, 'total'):
-                total = count_result.total
-            elif isinstance(count_result, dict):
-                total = count_result.get('total', 0)
-            else:
-                total = 0
-        else:
-            total = 0
-        
-        # Get paginated results with domain info
+        # Build ORM queryset for counting (safe parameterized filters)
+        count_qs = Bug.objects(db)
+
+        # Build WHERE conditions for the JOIN list query simultaneously.
+        # Field names here are hardcoded constants (not from user input), so
+        # they are safe to embed in SQL.  Values come from query_params and
+        # are always passed as bound parameters.
+        where_conditions = []
+        where_params = []
+
+        status = query_params.get("status")
+        if status:
+            count_qs = count_qs.filter(status=status)
+            where_conditions.append("b.status = ?")
+            where_params.append(status)
+
+        domain = query_params.get("domain")
+        if domain and domain.isdigit():
+            count_qs = count_qs.filter(domain=int(domain))
+            where_conditions.append("b.domain = ?")
+            where_params.append(int(domain))
+
+        verified = query_params.get("verified")
+        if verified:
+            verified_int = 1 if verified.lower() == "true" else 0
+            count_qs = count_qs.filter(verified=verified_int)
+            where_conditions.append("b.verified = ?")
+            where_params.append(verified_int)
+
+        total = await count_qs.count()
+
+        where_sql = (" WHERE " + " AND ".join(where_conditions)) if where_conditions else ""
+
         list_query = f'''
-            SELECT 
+            SELECT
                 b.id,
                 b.url,
                 b.description,
@@ -322,19 +333,18 @@ async def handle_bugs(
                 d.url as domain_url
             FROM bugs b
             LEFT JOIN domains d ON b.domain = d.id
-            {where_clause}
+            {where_sql}
             ORDER BY b.created DESC
             LIMIT ? OFFSET ?
         '''
-        
+
         result = await db.prepare(list_query).bind(
-            *params, per_page, (page - 1) * per_page
+            *where_params, per_page, (page - 1) * per_page
         ).all()
-        
-        # Convert D1 proxy results to Python list
+
         data = convert_d1_results(result.results if hasattr(result, 'results') else [])
-        
-        return json_response({
+
+        return Response.json({
             "success": True,
             "data": data,
             "pagination": {
@@ -346,4 +356,5 @@ async def handle_bugs(
             }
         })
     except Exception as e:
+        logger.error(f"Error fetching bugs: {str(e)}")
         return error_response(f"Failed to fetch bugs: {str(e)}", status=500)

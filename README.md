@@ -60,11 +60,14 @@ uv tool install workers-py
 ### Local Development
 
 ```bash
-# Setup local database
+# Setup local database (automated script)
+bash scripts/setup_local_db.sh
+
+# Or manually:
 wrangler d1 migrations apply blt-api --local
 wrangler d1 execute blt-api --local --file=test_data.sql
 
-# Start the development server.
+# Start the development server
 wrangler dev --port 8787
 
 # The API will be available at http://localhost:8787
@@ -93,8 +96,16 @@ uv run pytest tests/test_router.py -v
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/` | API status and available endpoints |
+| GET | `/` | API homepage with interactive documentation |
 | GET | `/health` | Health check endpoint |
+
+### Authentication
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/auth/signup` | Register a new user |
+| POST | `/auth/signin` | Sign in and get auth token |
+| GET | `/auth/verify-email` | Verify email address (link from email) |
 
 ### Bugs
 
@@ -449,6 +460,13 @@ This project uses Cloudflare D1 (SQLite) for data persistence. Some endpoints qu
 ### Database Operations
 
 ```bash
+# Setup local database (recommended - uses script)
+bash scripts/setup_local_db.sh
+
+# Setup remote database
+bash scripts/setup_remote_db.sh
+
+# Or manually:
 # Apply migrations locally
 wrangler d1 migrations apply blt-api --local
 
@@ -477,22 +495,45 @@ BLT-API/
 │   ├── utils.py            # Utility functions
 │   ├── client.py           # BLT backend HTTP client
 │   ├── libs/               # Library modules
-│   │   └── db.py           # Database helpers
-│   └── handlers/           # Request handlers
-│       ├── __init__.py
-│       ├── bugs.py
-│       ├── users.py
-│       ├── domains.py      # D1-integrated.
-│       ├── organizations.py
-│       ├── projects.py
-│       ├── hunts.py
-│       ├── stats.py
-│       ├── leaderboard.py
-│       ├── contributors.py
-│       ├── repos.py
-│       └── health.py
+│   │   ├── __init__.py
+│   │   ├── db.py           # Database helpers
+│   │   ├── constant.py     # Constants and config
+│   │   └── jwt_utils.py    # JWT authentication utilities
+│   ├── handlers/           # Request handlers
+│   │   ├── __init__.py
+│   │   ├── auth.py         # Authentication (signup, signin, verify)
+│   │   ├── bugs.py         # Bugs endpoints
+│   │   ├── users.py        # Users endpoints
+│   │   ├── domains.py      # Domains (D1-integrated)
+│   │   ├── organizations.py
+│   │   ├── projects.py
+│   │   ├── hunts.py
+│   │   ├── stats.py
+│   │   ├── leaderboard.py
+│   │   ├── contributors.py
+│   │   ├── repos.py
+│   │   ├── health.py
+│   │   └── homepage.py     # Interactive API documentation
+│   ├── services/           # Service modules
+│   │   ├── __init__.py
+│   │   ├── email_service.py      # Email sending (Mailgun)
+│   │   ├── email_templates.py    # Email template renderer
+│   │   └── templates/            # Email HTML templates
+│   │       ├── base.html         # Base email template
+│   │       ├── welcome.html      # Welcome email
+│   │       ├── verification.html # Email verification
+│   │       ├── password_reset.html
+│   │       └── bug_confirmation.html
+│   └── pages/              # Static pages
+│       └── index.html      # API homepage template
+├── scripts/                # Utility scripts
+│   ├── migrate.sh          # Auto-migration script for deployments
+│   ├── setup_local_db.sh   # Local database setup
+│   └── setup_remote_db.sh  # Remote database setup
 ├── migrations/             # D1 database migrations
-│   └── 0001_init.sql
+│   ├── 0001_init.sql
+│   ├── 0002_add_bugs.sql
+│   └── 0003_user_schema.sql
 ├── docs/                   # Documentation
 │   └── DATABASE.md         # D1 database guide
 ├── tests/                  # Test files
@@ -659,7 +700,7 @@ For database changes, see [docs/DATABASE.md](docs/DATABASE.md).
 
 ## License
 
-This project is licensed under the AGPL-3.0 License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the AGPL-3.0 License - see the [LICENSE](LICENSE) file for details
 
 ## Support
 
