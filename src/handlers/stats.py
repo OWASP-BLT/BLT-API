@@ -34,8 +34,8 @@ async def handle_stats(
             """
             SELECT
                 COUNT(*) AS total,
-                SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END) AS open,
-                SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END) AS closed
+                COALESCE(SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END), 0) AS open,
+                COALESCE(SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END), 0) AS closed
             FROM bugs
             """
         ).first()
