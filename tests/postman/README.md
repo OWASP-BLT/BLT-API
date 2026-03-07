@@ -121,7 +121,7 @@ Each folder contains related endpoints. You can run individual folders:
 
 **Every request includes automated tests:**
 
-✅ Status code is 200 or 201 (depending on endpoint)  
+✅ Status code validation aligned to endpoint behavior (200/201, and conditional 400 for missing verify token)  
 ✅ Response is valid JSON
 
 Example test output:
@@ -131,7 +131,7 @@ GET /health
 ✓ Response is valid JSON
 ```
 
-**Note:** POST endpoints that create resources return `201 Created` (`/auth/signup`, `/bugs`), while `POST /auth/signin` returns `200 OK`. All other endpoints return `200`.
+**Note:** POST endpoints that create resources return `201 Created` (`/auth/signup`, `/bugs`), while `POST /auth/signin` returns `200 OK`. `GET /auth/verify-email` expects `200` when `verifyToken` is set and `400` when `verifyToken` is empty during default runs.
 
 ## Authentication Workflow
 
@@ -172,9 +172,10 @@ GET /health
 
 ### Create a Bug Report
 1. First, gather a domain ID: `GET /domains?page=1&per_page=5`
-2. `POST /bugs` with required fields (`url`, `description`) and optional field `domain`
-3. Response includes the newly created bug ID
-4. Verify with `GET /bugs/{newId}`
+2. Set environment variables `domainId` and `userId` to valid IDs
+3. `POST /bugs` with required fields (`url`, `description`) and optional field `domain`
+4. Response includes the newly created bug ID
+5. Verify with `GET /bugs/{newId}`
 
 ### Search Bugs
 1. `GET /bugs/search?q=sql%20injection&limit=10`

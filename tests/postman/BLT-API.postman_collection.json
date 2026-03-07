@@ -206,13 +206,20 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"Status code is 200\", function () {",
-                  "    pm.response.to.have.status(200);",
-                  "});",
-                  "",
                   "pm.test(\"Response is valid JSON\", function () {",
                   "    pm.response.json();",
-                  "});"
+                  "});",
+                  "",
+                  "const verifyToken = (pm.environment.get(\"verifyToken\") || \"\").trim();",
+                  "if (verifyToken) {",
+                  "    pm.test(\"Status code is 200 when verifyToken is set\", function () {",
+                  "        pm.response.to.have.status(200);",
+                  "    });",
+                  "} else {",
+                  "    pm.test(\"Status code is 400 when verifyToken is empty\", function () {",
+                  "        pm.response.to.have.status(400);",
+                  "    });",
+                  "}"
                 ]
               }
             }
@@ -390,7 +397,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"url\": \"https://api.example.com/v1/profile?user=42\",\n  \"description\": \"IDOR: user profile data can be accessed by changing the user parameter.\",\n  \"markdown_description\": \"## Repro Steps\\n1. Login as user A\\n2. Change `user` query param to another ID\\n3. Observe profile disclosure\",\n  \"label\": \"security\",\n  \"verified\": true,\n  \"status\": \"open\",\n  \"score\": 75,\n  \"github_url\": \"https://github.com/OWASP-BLT/BLT/issues/123\",\n  \"domain\": 1,\n  \"user\": 1\n}",
+              "raw": "{\n  \"url\": \"https://api.example.com/v1/profile?user=42\",\n  \"description\": \"IDOR: user profile data can be accessed by changing the user parameter.\",\n  \"markdown_description\": \"## Repro Steps\\n1. Login as user A\\n2. Change `user` query param to another ID\\n3. Observe profile disclosure\",\n  \"label\": \"security\",\n  \"verified\": true,\n  \"status\": \"open\",\n  \"score\": 75,\n  \"github_url\": \"https://github.com/OWASP-BLT/BLT/issues/123\",\n  \"domain\": {{domainId}},\n  \"user\": {{userId}}\n}",
               "options": {
                 "raw": {
                   "language": "json"
