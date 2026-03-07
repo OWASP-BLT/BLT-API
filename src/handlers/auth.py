@@ -105,7 +105,15 @@ async def handle_signup(
         hashed_password = f"{salt}${password_hash.hex()}"
 
         # Insert the new user into the database
-        new_user = await User.create(db, username=body["username"], email=body["email"], password=hashed_password, is_active=False)
+        try:
+            new_user = await User.create(db, username=body["username"], email=body["email"], password=hashed_password, is_active=False)
+        except Exception as e:
+            error_msg = str(e).lower()
+            if "unique" in error_msg and "username" in error_msg:
+                return error_response("Username already taken", 400)
+            if "unique" in error_msg and "email" in error_msg:
+                return error_response("Email already registered", 400)
+            raise
         user_id = new_user.get("id") if new_user else None
 
         # send verification email here using Mailgun
