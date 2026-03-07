@@ -89,16 +89,18 @@ def json_response(
 def error_response(
     message: str,
     status: int = 400,
-    details: Optional[Dict[str, Any]] = None
+    details: Optional[Dict[str, Any]] = None,
+    headers: Optional[Dict[str, str]] = None
 ) -> Response:
     """
     Create an error JSON response.
-    
+
     Args:
         message: Error message
         status: HTTP status code
         details: Additional error details
-    
+        headers: Additional headers to include
+
     Returns:
         Response object with error information
     """
@@ -107,11 +109,11 @@ def error_response(
         "message": message,
         "status": status
     }
-    
+
     if details:
         error_data["details"] = details
-    
-    return json_response(error_data, status=status)
+
+    return json_response(error_data, status=status, headers=headers)
 
 
 def success_response(
