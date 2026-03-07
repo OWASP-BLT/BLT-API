@@ -72,6 +72,9 @@ Configure these variables in the `BLT-API Environment` before running tests:
 | `baseUrl` | `http://localhost:8787` | API base URL (worker endpoint) |
 | `token` | `` (empty) | JWT auth token from `/auth/signin` |
 | `verifyToken` | `` (empty) | Email verification token (from signup email) |
+| `testUsername` | `test_user_123` | Username for signup/signin testing (parameterized) |
+| `testEmail` | `test.user.123@example.com` | Email for signup testing (parameterized) |
+| `testPassword` | `TestPass123!` | Password for signup/signin testing (parameterized) |
 | `bugId` | `1` | Bug ID for `/bugs/{id}` requests |
 | `userId` | `1` | User ID for `/users/{id}` requests |
 | `domainId` | `1` | Domain ID for `/domains/{id}` requests |
@@ -118,31 +121,34 @@ Each folder contains related endpoints. You can run individual folders:
 
 **Every request includes automated tests:**
 
-✅ Status code is 200 (or 201 for POST endpoints)  
+✅ Status code is 200 or 201 (depending on endpoint)  
 ✅ Response is valid JSON
 
 Example test output:
-```
+```text
 GET /health
 ✓ Status code is 200
 ✓ Response is valid JSON
 ```
 
-**Note:** POST endpoints (`/auth/signup`, `/auth/signin`, `/bugs`) return `201 Created` by design. If strict `200` status checking is needed, manually edit the tests to accept `200|201`.
+**Note:** POST endpoints that create resources return `201 Created` (`/auth/signup`, `/bugs`), while `POST /auth/signin` returns `200 OK`. All other endpoints return `200`.
 
 ## Authentication Workflow
 
 1. **Sign up (optional)**
-   - `POST /auth/signup` with `username`, `email`, `password`
+   - `POST /auth/signup` with `{{testUsername}}`, `{{testEmail}}`, `{{testPassword}}`
+   - Returns `201 Created` on success
    - Check email for verification link
    - Note the `user_id` from response
+   - **Tip:** Change `testUsername`/`testEmail` variables to create unique test accounts
 
 2. **Verify email**
    - `GET /auth/verify-email?token={{verifyToken}}`
    - Extract token from email verification link
 
 3. **Sign in**
-   - `POST /auth/signin` with `username`, `password`
+   - `POST /auth/signin` with `{{testUsername}}`, `{{testPassword}}`
+   - Returns `200 OK` with JWT token
    - Copy the returned `token` value
 
 4. **Set auth token**
@@ -193,9 +199,15 @@ GET /health
 - Ensure `wrangler dev` is running on port 8787
 - Or update `baseUrl` environment variable to match your worker URL
 
-### Tests failing with status 201 instead of 200
-- POST endpoints return `201 Created` by spec (see Tests tab)
-- Edit request tests if you need different status code assertions
+### Signup fails with "User already exists"
+- Change `testUsername` and `testEmail` environment variables to unique values
+- The collection uses parameterized credentials for reusability
+
+### Tests failing with wrong status code
+- `POST /auth/signup` and `POST /bugs` return `201 Created`
+- `POST /auth/signin` returns `200 OK`
+- All GET endpoints return `200 OK`
+- Tests are configured with the correct expected status codes
 
 ## Additional Resources
 

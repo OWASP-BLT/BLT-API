@@ -100,8 +100,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"Status code is 200\", function () {",
-                  "    pm.response.to.have.status(200);",
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
                   "});",
                   "",
                   "pm.test(\"Response is valid JSON\", function () {",
@@ -126,7 +126,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"rami_tester\",\n  \"email\": \"rami.tester@example.com\",\n  \"password\": \"StrongPass123!\"\n}",
+              "raw": "{\n  \"username\": \"{{testUsername}}\",\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -179,7 +179,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"rami_tester\",\n  \"password\": \"StrongPass123!\"\n}",
+              "raw": "{\n  \"username\": \"{{testUsername}}\",\n  \"password\": \"{{testPassword}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -364,8 +364,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"Status code is 200\", function () {",
-                  "    pm.response.to.have.status(200);",
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
                   "});",
                   "",
                   "pm.test(\"Response is valid JSON\", function () {",
@@ -1866,6 +1866,18 @@
     {
       "key": "verifyToken",
       "value": ""
+    },
+    {
+      "key": "testUsername",
+      "value": "test_user_123"
+    },
+    {
+      "key": "testEmail",
+      "value": "test.user.123@example.com"
+    },
+    {
+      "key": "testPassword",
+      "value": "TestPass123!"
     },
     {
       "key": "bugId",
