@@ -134,7 +134,7 @@ class TestStatsHandler:
         assert response.status == 500
         assert payload["error"] is True
         assert payload["status"] == 500
-        assert payload["message"] == "Database connection error: db unavailable"
+        assert payload["message"] == "Database connection error"
 
     @pytest.mark.asyncio
     async def test_stats_returns_error_when_count_query_fails(self, monkeypatch):
@@ -159,4 +159,4 @@ class TestStatsHandler:
         assert response.status == 500
         assert payload["error"] is True
         assert payload["status"] == 500
-        assert payload["message"] == "Error fetching stats: count failed"
+        assert payload["message"] == "Internal server error"

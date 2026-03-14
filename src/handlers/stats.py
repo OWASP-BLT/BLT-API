@@ -24,9 +24,9 @@ async def handle_stats(
     logger = logging.getLogger(__name__)
     try:
         db = await get_db_safe(env)
-    except Exception as e:
-        logger.error(f"Database connection error: {e!s}")
-        return error_response(f"Database connection error: {e!s}", status=500)
+    except Exception:
+        logger.exception("Database connection error")
+        return error_response("Database connection error", status=500)
 
     try:
         total_bugs = await Bug.objects(db).count()
@@ -62,6 +62,6 @@ async def handle_stats(
                 "active_domains": "Total number of active tracked domains",
             }
         })
-    except Exception as e:
-        logger.error(f"Error fetching stats: {e!s}")
-        return error_response(f"Error fetching stats: {e!s}", status=500)
+    except Exception:
+        logger.exception("Error fetching stats")
+        return error_response("Internal server error", status=500)
