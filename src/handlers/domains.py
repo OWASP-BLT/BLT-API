@@ -2,11 +2,14 @@
 Domains handler for the BLT API.
 """
 
+import logging
 from typing import Any, Dict
 from utils import error_response, parse_pagination_params, convert_d1_results
 from libs.db import get_db_safe
 from workers import Response
 from models import Domain
+
+logger = logging.getLogger(__name__)
 
 
 async def handle_domains(
@@ -38,7 +41,8 @@ async def handle_domains(
     try:
         db = await get_db_safe(env)
     except Exception as e:
-        return error_response(str(e), status=503)
+        logger.error("Database connection failed: %s", e, exc_info=True)
+        return error_response("Service temporarily unavailable", status=503)
 
     # Get specific domain
     if "id" in path_params:
@@ -79,9 +83,8 @@ async def handle_domains(
                     }
                 })
             except Exception as e:
-                return error_response(
-                    f"Failed to fetch domain tags: {str(e)}", status=500
-                )
+                logger.error("Failed to fetch tags for domain %s: %s", domain_id, e, exc_info=True)
+                return error_response("Failed to fetch domain tags", status=500)
 
         # GET /domains/{id}
         try:
@@ -91,7 +94,8 @@ async def handle_domains(
 
             return Response.json({"success": True, "data": domain})
         except Exception as e:
-            return error_response(f"Failed to fetch domain: {str(e)}", status=500)
+            logger.error("Failed to fetch domain %s: %s", domain_id, e, exc_info=True)
+            return error_response("Failed to fetch domain", status=500)
 
     # GET /domains  –  list with pagination
     try:
@@ -117,4 +121,5 @@ async def handle_domains(
             }
         })
     except Exception as e:
-        return error_response(f"Failed to fetch domains: {str(e)}", status=500)
+        logger.error("Failed to fetch domains: %s", e, exc_info=True)
+        return error_response("Failed to fetch domains", status=500)
