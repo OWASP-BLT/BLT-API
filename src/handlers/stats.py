@@ -32,8 +32,10 @@ async def handle_stats(
         total_bugs = await Bug.objects(db).count()
         open_bugs = await Bug.objects(db).filter(status='open').count()
         closed_bugs = await Bug.objects(db).filter(status='closed').count()
-        users_count = await User.objects(db).filter(is_active=1).count()
-        domains_count = await Domain.objects(db).filter(is_active=1).count()
+        users_count = await User.objects(db).count()
+        active_users_count = await User.objects(db).filter(is_active=1).count()
+        domains_count = await Domain.objects(db).count()
+        active_domains_count = await Domain.objects(db).filter(is_active=1).count()
 
         return json_response({
             "success": True,
@@ -45,13 +47,17 @@ async def handle_stats(
                     "closed": closed_bugs,
                 },
                 "users": users_count,
+                "active_users": active_users_count,
                 "domains": domains_count,
+                "active_domains": active_domains_count,
             },
             "description": {
                 "bugs": "Total number of bugs reported",
                 "bugs_breakdown": "Bug counts by status (total, open, closed)",
-                "users": "Total number of active registered users",
-                "domains": "Total number of active tracked domains",
+                "users": "Total number of registered users",
+                "active_users": "Total number of active registered users",
+                "domains": "Total number of tracked domains",
+                "active_domains": "Total number of active tracked domains",
             }
         })
     except Exception as e:
