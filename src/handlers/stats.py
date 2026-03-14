@@ -38,7 +38,8 @@ async def handle_stats(
         return json_response({
             "success": True,
             "data": {
-                "bugs": {
+                "bugs": total_bugs,
+                "bugs_breakdown": {
                     "total": total_bugs,
                     "open": open_bugs,
                     "closed": closed_bugs,
@@ -47,7 +48,8 @@ async def handle_stats(
                 "domains": domains_count,
             },
             "description": {
-                "bugs": "Bug counts by status (total, open, closed)",
+                "bugs": "Total number of bugs reported",
+                "bugs_breakdown": "Bug counts by status (total, open, closed)",
                 "users": "Total number of active registered users",
                 "domains": "Total number of active tracked domains",
             }
