@@ -25,8 +25,8 @@ async def handle_stats(
     try:
         db = await get_db_safe(env)
     except Exception as e:
-        logger.error(f"Database connection error: {str(e)}")
-        return error_response(f"Database connection error: {str(e)}", status=500)
+        logger.error(f"Database connection error: {e!s}")
+        return error_response(f"Database connection error: {e!s}", status=500)
 
     try:
         total_bugs = await Bug.objects(db).count()
@@ -63,5 +63,5 @@ async def handle_stats(
             }
         })
     except Exception as e:
-        logger.error(f"Error fetching stats: {str(e)}")
-        return error_response(f"Error fetching stats: {str(e)}", status=500)
+        logger.error(f"Error fetching stats: {e!s}")
+        return error_response(f"Error fetching stats: {e!s}", status=500)

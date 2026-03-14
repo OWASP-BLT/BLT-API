@@ -10,7 +10,8 @@ from pathlib import Path
 
 SRC_PATH = Path(__file__).resolve().parent.parent / "src"
 sys.path.insert(0, str(SRC_PATH))
-
+# Importing handlers.stats via package triggers handlers/__init__.py, which imports
+# workers-dependent modules not available in this isolated test environment.
 stats_spec = importlib.util.spec_from_file_location(
     "stats_handler_module",
     SRC_PATH / "handlers" / "stats.py",
