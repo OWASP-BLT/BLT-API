@@ -132,6 +132,54 @@ class TestUsernameValidation:
 
         assert resp.status == 201
 
+    @pytest.mark.asyncio
+    async def test_username_exactly_3_chars_accepted(self):
+        body = _valid_body(username="abc")
+        mock_user_cls = MagicMock()
+        mock_qs = MagicMock()
+        mock_qs.filter.return_value = mock_qs
+        mock_qs.first = AsyncMock(return_value=None)
+        mock_user_cls.objects.return_value = mock_qs
+        mock_user_cls.create = AsyncMock(return_value={"id": 1})
+
+        mock_email = MagicMock()
+        mock_email.send_verification_email = AsyncMock(return_value=(200, "OK"))
+
+        with patch("handlers.auth.get_db_safe", AsyncMock(return_value=MagicMock())), \
+             patch("handlers.auth.User", mock_user_cls), \
+             patch("handlers.auth.EmailService", return_value=mock_email), \
+             patch("handlers.auth.generate_jwt_token", return_value="fake.token"):
+            resp = await handle_signup(MockRequest(body=body), MockEnv(), {}, {}, "/auth/signup")
+
+        assert resp.status == 201
+
+    @pytest.mark.asyncio
+    async def test_username_exactly_150_chars_accepted(self):
+        body = _valid_body(username="a" * 150)
+        mock_user_cls = MagicMock()
+        mock_qs = MagicMock()
+        mock_qs.filter.return_value = mock_qs
+        mock_qs.first = AsyncMock(return_value=None)
+        mock_user_cls.objects.return_value = mock_qs
+        mock_user_cls.create = AsyncMock(return_value={"id": 1})
+
+        mock_email = MagicMock()
+        mock_email.send_verification_email = AsyncMock(return_value=(200, "OK"))
+
+        with patch("handlers.auth.get_db_safe", AsyncMock(return_value=MagicMock())), \
+             patch("handlers.auth.User", mock_user_cls), \
+             patch("handlers.auth.EmailService", return_value=mock_email), \
+             patch("handlers.auth.generate_jwt_token", return_value="fake.token"):
+            resp = await handle_signup(MockRequest(body=body), MockEnv(), {}, {}, "/auth/signup")
+
+        assert resp.status == 201
+
+    @pytest.mark.asyncio
+    async def test_username_non_string_returns_400(self):
+        body = _valid_body(username=12345)
+        resp = await handle_signup(MockRequest(body=body), MockEnv(), {}, {}, "/auth/signup")
+        assert resp.status == 400
+
 
 # ─── Email validation ───────────────────────────────────────────────────
 
@@ -184,6 +232,12 @@ class TestEmailValidation:
 
         assert resp.status == 201
 
+    @pytest.mark.asyncio
+    async def test_email_non_string_returns_400(self):
+        body = _valid_body(email=12345)
+        resp = await handle_signup(MockRequest(body=body), MockEnv(), {}, {}, "/auth/signup")
+        assert resp.status == 400
+
 
 # ─── Password validation ────────────────────────────────────────────────
 
@@ -233,5 +287,11 @@ class TestPasswordValidation:
     @pytest.mark.asyncio
     async def test_empty_password_returns_400(self):
         body = _valid_body(password="")
+        resp = await handle_signup(MockRequest(body=body), MockEnv(), {}, {}, "/auth/signup")
+        assert resp.status == 400
+
+    @pytest.mark.asyncio
+    async def test_password_non_string_returns_400(self):
+        body = _valid_body(password=12345678)
         resp = await handle_signup(MockRequest(body=body), MockEnv(), {}, {}, "/auth/signup")
         assert resp.status == 400

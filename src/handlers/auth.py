@@ -84,6 +84,8 @@ async def handle_signup(
             return error_response("Missing required field",400)
 
         # Validate username format
+        if not isinstance(body["username"], str):
+            return error_response("Username must be a string", 400)
         username = body["username"].strip()
         if not username or len(username) < 3 or len(username) > 150:
             return error_response(
@@ -97,11 +99,15 @@ async def handle_signup(
             )
 
         # Validate email format
+        if not isinstance(body["email"], str):
+            return error_response("Email must be a string", 400)
         email = body["email"].strip()
         if not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email):
             return error_response("Invalid email format", 400)
 
         # Validate password strength
+        if not isinstance(body["password"], str):
+            return error_response("Password must be a string", 400)
         password = body["password"]
         if len(password) < 8:
             return error_response(
