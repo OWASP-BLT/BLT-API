@@ -41,7 +41,7 @@ async def handle_domains(
     try:
         db = await get_db_safe(env)
     except Exception as e:
-        logger.error(f"Database connection error: {str(e)}")
+        logger.error(f"Database connection error: {e!s}", exc_info=True)
         return error_response("Database connection failed", status=503)
 
     # Get specific domain
@@ -83,7 +83,7 @@ async def handle_domains(
                     }
                 })
             except Exception as e:
-                logger.error(f"Failed to fetch domain tags: {str(e)}")
+                logger.error(f"Failed to fetch domain tags: {e!s}", exc_info=True)
                 return error_response("Failed to fetch domain tags", status=500)
 
 
@@ -95,7 +95,7 @@ async def handle_domains(
 
             return Response.json({"success": True, "data": domain})
         except Exception as e:
-            logger.error(f"Failed to fetch domain: {str(e)}")
+            logger.error(f"Failed to fetch domain: {e!s}", exc_info=True)
             return error_response("Failed to fetch domain", status=500)
 
     # GET /domains  –  list with pagination
@@ -122,5 +122,5 @@ async def handle_domains(
             }
         })
     except Exception as e:
-        logger.error(f"Failed to fetch domains: {str(e)}")
+        logger.error(f"Failed to fetch domains: {e!s}", exc_info=True)
         return error_response("Failed to fetch domains", status=500)
