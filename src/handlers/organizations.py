@@ -32,7 +32,8 @@ async def handle_organizations(
     try:
         db = await get_db_safe(env)
     except Exception as e:
-        return error_response(str(e), status=503)
+        print(f"Database connection error: {e}")
+        return error_response("Service temporarily unavailable. Please try again later.", status=503)
 
     # Get specific organization
     if "id" in path_params:
@@ -58,7 +59,8 @@ async def handle_organizations(
                 total = await Domain.objects(db).filter(organization=org_id_int).count()
                 return paginated_response(domains, page=page, per_page=per_page, total=total)
             except Exception as e:
-                return error_response(f"Failed to fetch domains: {str(e)}", status=500)
+                print(f"Error in Failed to fetch domains: {e}")
+                return error_response("Failed to fetch domains failed. Please try again later.", status=500)
 
         # GET /organizations/{id}/bugs
         if path.endswith("/bugs"):
@@ -79,7 +81,8 @@ async def handle_organizations(
                     .count()
                 return paginated_response(bugs, page=page, per_page=per_page, total=total)
             except Exception as e:
-                return error_response(f"Failed to fetch bugs: {str(e)}", status=500)
+                print(f"Error in Failed to fetch bugs: {e}")
+                return error_response("Failed to fetch bugs failed. Please try again later.", status=500)
 
         # GET /organizations/{id}/managers
         if path.endswith("/managers"):
@@ -98,7 +101,8 @@ async def handle_organizations(
                     "count": len(managers)
                 })
             except Exception as e:
-                return error_response(f"Failed to fetch managers: {str(e)}", status=500)
+                print(f"Error in Failed to fetch managers: {e}")
+                return error_response("Failed to fetch managers failed. Please try again later.", status=500)
 
         # GET /organizations/{id}/tags
         if path.endswith("/tags"):
@@ -115,7 +119,8 @@ async def handle_organizations(
                     "count": len(tags)
                 })
             except Exception as e:
-                return error_response(f"Failed to fetch tags: {str(e)}", status=500)
+                print(f"Error in Failed to fetch tags: {e}")
+                return error_response("Failed to fetch tags failed. Please try again later.", status=500)
 
         # GET /organizations/{id}/integrations
         if path.endswith("/integrations"):
@@ -132,7 +137,8 @@ async def handle_organizations(
                     "count": len(integrations)
                 })
             except Exception as e:
-                return error_response(f"Failed to fetch integrations: {str(e)}", status=500)
+                print(f"Error in Failed to fetch integrations: {e}")
+                return error_response("Failed to fetch integrations failed. Please try again later.", status=500)
 
         # GET /organizations/{id}/stats
         if path.endswith("/stats"):
@@ -157,7 +163,8 @@ async def handle_organizations(
                     }
                 })
             except Exception as e:
-                return error_response(f"Failed to fetch stats: {str(e)}", status=500)
+                print(f"Error in Failed to fetch stats: {e}")
+                return error_response("Failed to fetch stats failed. Please try again later.", status=500)
 
         # GET /organizations/{id} — organization details
         try:
@@ -197,7 +204,8 @@ async def handle_organizations(
 
             return Response.json({"success": True, "data": org})
         except Exception as e:
-            return error_response(f"Failed to fetch organization: {str(e)}", status=500)
+            print(f"Error in Failed to fetch organization: {e}")
+            return error_response("Failed to fetch organization failed. Please try again later.", status=500)
 
     # GET /organizations — list with pagination and search
     try:
@@ -223,7 +231,11 @@ async def handle_organizations(
             filter_kwargs["is_active"] = 1 if is_active.lower() in ["true", "1", "yes"] else 0
 
         if search:
-            qs = qs.filter(**{"organization.name__icontains": search})
+            qs = qs.filter_or(**{
+                "organization.name__icontains": search,
+                "organization.slug__icontains": search,
+                "organization.description__icontains": search,
+            })
         if filter_kwargs:
             qs = qs.filter(**{f"organization.{k}": v for k, v in filter_kwargs.items()})
 
@@ -232,11 +244,16 @@ async def handle_organizations(
         # Count query uses same filters without JOIN for consistency
         count_qs = Organization.objects(db)
         if search:
-            count_qs = count_qs.filter(name__icontains=search)
+            count_qs = count_qs.filter_or(
+                name__icontains=search,
+                slug__icontains=search,
+                description__icontains=search,
+            )
         if filter_kwargs:
             count_qs = count_qs.filter(**filter_kwargs)
         total = await count_qs.count()
 
         return paginated_response(organizations, page=page, per_page=per_page, total=total)
     except Exception as e:
-        return error_response(f"Failed to fetch organizations: {str(e)}", status=500)
+        print(f"Error in Failed to fetch organizations: {e}")
+        return error_response("Failed to fetch organizations failed. Please try again later.", status=500)
