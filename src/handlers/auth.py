@@ -1,5 +1,6 @@
 
 import hashlib
+import re
 import secrets
 import time
 from typing import Any, Dict, Optional
@@ -81,8 +82,39 @@ async def handle_signup(
 
         if not valid:
             return error_response("Missing required field",400)
-        
-        
+
+        # Validate username format
+        if not isinstance(body["username"], str):
+            return error_response("Username must be a string", 400)
+        username = body["username"].strip()
+        if not username or len(username) < 3 or len(username) > 150:
+            return error_response(
+                "Username must be 3-150 characters",
+                400
+            )
+        if not re.match(r'^[a-zA-Z0-9_]+$', username):
+            return error_response(
+                "Username must contain only letters, numbers, and underscores",
+                400
+            )
+
+        # Validate email format
+        if not isinstance(body["email"], str):
+            return error_response("Email must be a string", 400)
+        email = body["email"].strip()
+        if not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email):
+            return error_response("Invalid email format", 400)
+
+        # Validate password strength
+        if not isinstance(body["password"], str):
+            return error_response("Password must be a string", 400)
+        password = body["password"]
+        if len(password) < 8:
+            return error_response(
+                "Password must be at least 8 characters",
+                400
+            )
+
         # getting db connection
         try :
             db = await get_db_safe(env)
@@ -90,20 +122,20 @@ async def handle_signup(
             return error_response("Database connection error", 500)
 
         # Check if username or email already exists
-        existing_user = await User.objects(db).filter(username=body["username"]).first()
+        existing_user = await User.objects(db).filter(username=username).first()
         if not existing_user:
-            existing_user = await User.objects(db).filter(email=body["email"]).first()
+            existing_user = await User.objects(db).filter(email=email).first()
 
         if existing_user:
             return error_response("User already exists", 400)
 
         # Hash the password using PBKDF2
         salt = secrets.token_hex(16)
-        password_hash = hashlib.pbkdf2_hmac('sha256', body["password"].encode('utf-8'), salt.encode('utf-8'), __HASHING_ITERATIONS)
+        password_hash = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt.encode('utf-8'), __HASHING_ITERATIONS)
         hashed_password = f"{salt}${password_hash.hex()}"
 
         # Insert the new user into the database
-        new_user = await User.create(db, username=body["username"], email=body["email"], password=hashed_password, is_active=False)
+        new_user = await User.create(db, username=username, email=email, password=hashed_password, is_active=False)
         user_id = new_user.get("id") if new_user else None
 
         # send verification email here using Mailgun
@@ -117,8 +149,8 @@ async def handle_signup(
         base_url = env.BLT_API_BASE_URL
         
         status, response = await email_service.send_verification_email(
-            to_email=body["email"],
-            username=body["username"],
+            to_email=email,
+            username=username,
             verification_token=token,
             base_url=base_url
         )
