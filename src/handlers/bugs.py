@@ -5,7 +5,7 @@ Bugs handler for the BLT API.
 from typing import Any, Dict
 from utils import error_response, parse_pagination_params, parse_json_body, convert_d1_results
 from libs.db import get_db_safe
-from models import Bug
+from models import Bug, BugScreenshot
 from workers import Response
 import logging
 
@@ -60,32 +60,23 @@ async def handle_bugs(
             limit_int = 10
         
         try:
+            # Search requires OR condition (url LIKE ? OR description LIKE ?)
+            # which the ORM does not support. Raw SQL is kept intentionally.
             search_result = await db.prepare('''
-                SELECT 
-                    b.id,
-                    b.url,
-                    b.description,
-                    b.status,   
-                    b.verified,
-                    b.score,
-                    b.views,    
-                    b.created,
-                    b.modified,
-                    b.is_hidden,
-                    b.rewarded, 
-                    b.cve_id,
-                    b.cve_score,    
-                    b.domain,
-                    d.name as domain_name,
-                    d.url as domain_url 
-                FROM bugs b   
+                SELECT
+                    b.id, b.url, b.description, b.status, b.verified,
+                    b.score, b.views, b.created, b.modified, b.is_hidden,
+                    b.rewarded, b.cve_id, b.cve_score, b.domain,
+                    d.name as domain_name, d.url as domain_url
+                FROM bugs b
                 LEFT JOIN domains d ON b.domain = d.id
                 WHERE b.url LIKE ? OR b.description LIKE ?
                 ORDER BY b.created DESC
                 LIMIT ? OFFSET 0
             ''').bind(f"%{query}%", f"%{query}%", limit_int).all()
-            
-            response_data = convert_d1_results(search_result.results if hasattr(search_result, 'results') else [])
+            response_data = convert_d1_results(
+                search_result.results if hasattr(search_result, 'results') else []
+            )
             return Response.json({
                 "success": True,
                 "query": query,
@@ -97,68 +88,40 @@ async def handle_bugs(
     # Get specific bug
     if "id" in path_params:
         try:
-            bug_id = int(path_params["id"])
-        except ValueError:
-            logger.warning(f"Invalid bug id format: {path_params['id']}")
-            return error_response("Invalid bug id format", status=400)
+            # Use ORM with JOIN for main bug fetch
+            bug_data = await (
+                Bug.objects(db)
+                .join("domains", on="bugs.domain=domains.id", join_type="LEFT")
+                .filter(id=bug_id)
+                .values(
+                    "bugs.id", "bugs.url", "bugs.description",
+                    "bugs.markdown_description", "bugs.label", "bugs.views",
+                    "bugs.verified", "bugs.score", "bugs.status",
+                    "bugs.user_agent", "bugs.ocr", "bugs.screenshot",
+                    "bugs.closed_date", "bugs.github_url", "bugs.created",
+                    "bugs.modified", "bugs.is_hidden", "bugs.rewarded",
+                    "bugs.reporter_ip_address", "bugs.cve_id", "bugs.cve_score",
+                    "bugs.hunt", "bugs.domain", "bugs.user", "bugs.closed_by",
+                    "domains.id as domain_id", "domains.name as domain_name",
+                    "domains.url as domain_url", "domains.logo as domain_logo"
+                )
+                .first()
+            )
 
-        try:
-            result = await db.prepare('''
-                SELECT 
-                    b.id,
-                    b.url,
-                    b.description,
-                    b.markdown_description,
-                    b.label,
-                    b.views,
-                    b.verified,
-                    b.score,
-                    b.status,
-                    b.user_agent,
-                    b.ocr,
-                    b.screenshot,
-                    b.closed_date,
-                    b.github_url,
-                    b.created,
-                    b.modified,
-                    b.is_hidden,
-                    b.rewarded,
-                    b.reporter_ip_address,
-                    b.cve_id,
-                    b.cve_score,
-                    b.hunt,
-                    b.domain,
-                    b.user,
-                    b.closed_by,
-                    d.id as domain_id,
-                    d.name as domain_name,
-                    d.url as domain_url,
-                    d.logo as domain_logo
-                FROM bugs b
-                LEFT JOIN domains d ON b.domain = d.id
-                WHERE b.id = ?
-            ''').bind(bug_id).first()
-            
-            # Convert JsProxy result directly to Python dict
-            if result and hasattr(result, 'to_py'):
-                bug_data = result.to_py()
-            elif result and isinstance(result, dict):
-                bug_data = dict(result)
-            else:
-                bug_data = None
-            
             if not bug_data:
                 return error_response("Bug not found", status=404)
-            
-            # Get screenshots for this bug
-            screenshots_result = await db.prepare('''
-                SELECT id, image, created
-                FROM bug_screenshots
-                WHERE bug = ?
-                ORDER BY created DESC
-            ''').bind(bug_id).all()
-            
-            # Get tags for this bug
+
+            # Screenshots via ORM (no JOIN needed)
+            screenshots_data = (
+                await BugScreenshot.objects(db)
+                .filter(bug=bug_id)
+                .values("id", "image", "created")
+                .order_by("-created")
+                .all()
+            )
+
+            # Tags require a JOIN across bug_tags and tags tables.
+            # Kept as raw SQL since the ORM only supports single equality ON clauses.
             tags_result = await db.prepare('''
                 SELECT t.id, t.name
                 FROM bug_tags bt
@@ -166,15 +129,11 @@ async def handle_bugs(
                 WHERE bt.bug_id = ?
                 ORDER BY t.name
             ''').bind(bug_id).all()
-            
-            # Convert results
-            screenshots_data = convert_d1_results(screenshots_result.results if hasattr(screenshots_result, 'results') else [])
             tags_data = convert_d1_results(tags_result.results if hasattr(tags_result, 'results') else [])
-            
-            # Add screenshots and tags to bug data
+
             bug_data['screenshots'] = screenshots_data
             bug_data['tags'] = tags_data
-            
+
             return Response.json({
                 "success": True,
                 "data": bug_data
@@ -182,7 +141,6 @@ async def handle_bugs(
         except Exception as e:
             logger.error(f"Error fetching bug {bug_id}: {str(e)}")
             return error_response("Failed to fetch bug. Please try again later.", status=500)
-    
     # Create bug
     if method == "POST":
         body = await parse_json_body(request)
