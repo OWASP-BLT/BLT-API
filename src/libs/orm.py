@@ -24,6 +24,7 @@ Usage example::
     tag = await Tag.create(db, name='security')
 """
 
+import re
 from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar
 
 T = TypeVar("T", bound="Model")
@@ -223,17 +224,26 @@ class QuerySet:
         """Select only the specified columns (validated identifiers).
 
         Supports aliased columns using SQL ``AS`` syntax:
-        ``'table.column AS alias'``. Both the column and alias
-        are validated as safe identifiers.
+        ``'table.column AS alias'``. The split is case-insensitive and
+        whitespace-tolerant. Aliases must be simple identifiers (no dots).
+        Both column and alias are validated as safe identifiers.
         """
         qs = self._clone()
         validated = []
         for f in fields:
-            parts = [p.strip() for p in f.split(" AS ")]
+            # Case-insensitive, whitespace-tolerant split on first AS
+            parts = re.split(r'\s+[Aa][Ss]\s+', f.strip(), maxsplit=1)
             if len(parts) == 2:
-                _validate_identifier(parts[0])
-                _validate_identifier(parts[1])
-                validated.append(f"{parts[0]} AS {parts[1]}")
+                col, alias = parts[0].strip(), parts[1].strip()
+                _validate_identifier(col)
+                # Alias must be a simple identifier — no dots allowed
+                if '.' in alias:
+                    raise ValueError(
+                        f"Alias {alias!r} must be a simple identifier "
+                        "without dots."
+                    )
+                _validate_identifier(alias)
+                validated.append(f"{col} AS {alias}")
             else:
                 validated.append(_validate_identifier(f))
         qs._select_fields = validated
