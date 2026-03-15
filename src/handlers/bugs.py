@@ -88,6 +88,12 @@ async def handle_bugs(
     # Get specific bug
     if "id" in path_params:
         try:
+            bug_id = int(path_params["id"])
+        except ValueError:
+            logger.warning(f"Invalid bug id format: {path_params['id']}")
+            return error_response("Invalid bug id format", status=400)
+
+        try:
             # Use ORM with JOIN for main bug fetch
             bug_data = await (
                 Bug.objects(db)
