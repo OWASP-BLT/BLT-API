@@ -544,6 +544,78 @@ BLT-API/
 └── README.md
 ```
 
+### Postman Collection
+
+A script is provided to generate a ready-to-use Postman Collection v2.1 from
+the live route definitions in `src/main.py`. No running server is needed.
+
+#### Generate the collection
+
+```bash
+# Write blt_api_postman_collection.json to the project root (default)
+python scripts/generate_postman_collection.py
+
+# Write to a custom path
+python scripts/generate_postman_collection.py --output ~/Desktop/blt.json
+
+# Lower the response-time threshold in generated tests to 3 s
+python scripts/generate_postman_collection.py --response-time-ms 3000
+```
+
+#### Custom execution order
+
+```bash
+# List all valid endpoint ids first
+python scripts/generate_postman_collection.py --list-endpoints
+
+# Prioritise specific endpoints (login must always be first)
+python scripts/generate_postman_collection.py \
+    --order post_auth_signin get_health get_bugs post_bugs
+```
+
+#### Import into Postman
+
+1. Open Postman → **Import** → select `blt_api_postman_collection.json`.
+2. Create a new **Environment** and set these four variables:
+
+   | Variable | Example value | Notes |
+   |----------|---------------|-------|
+   | `base_url` | `http://localhost:8787` | No trailing slash |
+   | `username` | `alice` | Must be an active account |
+   | `password` | `s3cr3t` | Plain text |
+   | `token` | *(leave blank)* | Auto-populated by the sign-in request |
+
+3. Select the environment and run the collection. The first request (`POST /auth/signin`) stores the JWT in `token`; every subsequent request sends `Authorization: Bearer {{token}}` automatically.
+
+#### Built-in tests
+
+Every generated request includes:
+
+- **Status code** assertion (200, 201, etc.).
+- **Response time** assertion (default threshold: 5 000 ms).
+- **Valid JSON** assertion (response body is a non-null object).
+
+The sign-in request additionally validates that `token` is present and non-empty in the response body.
+
+> **Note — endpoints without pre-filled parameters**
+>
+> Only a subset of endpoints ship with pre-filled request bodies and query
+> parameters (see the table in the script docstring). For all other endpoints
+> you **must** open the request in Postman and manually add any required
+> parameters before running the collection:
+>
+> - **Path parameters** — replace the placeholder `1` in URLs like
+>   `/bugs/1` with a real resource id.
+> - **Query parameters** — add any required query params (e.g. `?q=...`)
+>   via the *Params* tab.
+> - **Body fields** — fill in required JSON fields in the *Body* tab.
+>
+> Sending a request with missing required parameters will produce a
+> `400 Bad Request` or `404 Not Found` response and cause the built-in
+> Postman tests to fail.
+
+---
+
 ### Adding New Endpoints
 
 1. Create a new handler in `src/handlers/`
