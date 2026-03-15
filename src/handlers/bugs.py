@@ -98,7 +98,7 @@ async def handle_bugs(
             bug_data = await (
                 Bug.objects(db)
                 .join("domains", on="bugs.domain=domains.id", join_type="LEFT")
-                .filter(id=bug_id)
+                .filter(**{"bugs.id": bug_id})
                 .values(
                     "bugs.id", "bugs.url", "bugs.description",
                     "bugs.markdown_description", "bugs.label", "bugs.views",
