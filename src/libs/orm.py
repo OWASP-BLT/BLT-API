@@ -134,6 +134,8 @@ class QuerySet:
         self._select_fields: List[str] = []
         # Each entry: (join_type, table, on_clause)
         self._joins: List[Tuple[str, str, str]] = []
+        # Each entry is a list of (field, operator, value) — joined with OR
+        self._or_filters: List[List[Tuple[str, str, Any]]] = []
 
     # ------------------------------------------------------------------
     # Cloning
@@ -222,9 +224,23 @@ class QuerySet:
         return qs
 
     def values(self, *fields: str) -> "QuerySet":
-        """Select only the specified columns (validated identifiers)."""
+        """Select only the specified columns (validated identifiers).
+
+        Supports aliased columns using SQL ``AS`` syntax:
+        ``'table.column AS alias'``. Both the column and alias
+        are validated as safe identifiers.
+        """
         qs = self._clone()
-        qs._select_fields = [_validate_identifier(f) for f in fields]
+        validated = []
+        for f in fields:
+            parts = [p.strip() for p in f.split(" AS ")]
+            if len(parts) == 2:
+                _validate_identifier(parts[0])
+                _validate_identifier(parts[1])
+                validated.append(f"{parts[0]} AS {parts[1]}")
+            else:
+                validated.append(_validate_identifier(f))
+        qs._select_fields = validated
         return qs
 
     def join(
