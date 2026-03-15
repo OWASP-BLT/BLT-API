@@ -3,7 +3,7 @@ Organizations handler for the BLT API.
 """
 
 from typing import Any, Dict
-from utils import convert_d1_results, error_response, paginated_response, parse_pagination_params, success_response
+from utils import error_response, paginated_response, parse_pagination_params
 from workers import Response
 from libs.db import get_db_safe
 from models import Organization, Domain, Bug, User, Tag, OrganizationManager, OrganizationTag, OrganizationIntegration
@@ -71,7 +71,7 @@ async def handle_organizations(
                     .paginate(page, per_page)\
                     .values('bugs.id', 'bugs.url', 'bugs.description', 'bugs.verified',
                             'bugs.score', 'bugs.status', 'bugs.created',
-                            'bugs.domain', 'domains.name')\
+                            'bugs.domain', 'domains.name AS domain_name')\
                     .all()
                 total = await Bug.objects(db)\
                     .join("domains", on="bugs.domain = domains.id", join_type="INNER")\
@@ -90,7 +90,7 @@ async def handle_organizations(
                     .order_by('-organization_managers.created')\
                     .values('users.id', 'users.username', 'users.email',
                             'users.user_avatar', 'users.total_score',
-                            'organization_managers.created')\
+                            'organization_managers.created AS joined_as_manager')\
                     .all()
                 return Response.json({
                     "success": True,
@@ -215,22 +215,26 @@ async def handle_organizations(
                     'users.username')\
             .order_by('-organization.created')
 
+        # Build shared filter kwargs for both list and count queries
+        filter_kwargs = {}
+        if org_type and org_type in ["company", "nonprofit", "education"]:
+            filter_kwargs["type"] = org_type
+        if is_active:
+            filter_kwargs["is_active"] = 1 if is_active.lower() in ["true", "1", "yes"] else 0
+
         if search:
             qs = qs.filter(**{"organization.name__icontains": search})
-        if org_type and org_type in ["company", "nonprofit", "education"]:
-            qs = qs.filter(**{"organization.type": org_type})
-        if is_active:
-            qs = qs.filter(**{"organization.is_active": 1 if is_active.lower() in ["true", "1", "yes"] else 0})
+        if filter_kwargs:
+            qs = qs.filter(**{f"organization.{k}": v for k, v in filter_kwargs.items()})
 
         organizations = await qs.paginate(page, per_page).all()
 
+        # Count query uses same filters without JOIN for consistency
         count_qs = Organization.objects(db)
         if search:
-            count_qs = count_qs.filter(**{"name__icontains": search})
-        if org_type and org_type in ["company", "nonprofit", "education"]:
-            count_qs = count_qs.filter(type=org_type)
-        if is_active:
-            count_qs = count_qs.filter(is_active=1 if is_active.lower() in ["true", "1", "yes"] else 0)
+            count_qs = count_qs.filter(name__icontains=search)
+        if filter_kwargs:
+            count_qs = count_qs.filter(**filter_kwargs)
         total = await count_qs.count()
 
         return paginated_response(organizations, page=page, per_page=per_page, total=total)
