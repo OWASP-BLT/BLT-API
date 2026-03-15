@@ -61,7 +61,7 @@ Authentication flow
    via ``pm.environment.set("token", ...)``.
 4. Every other request automatically includes the header::
 
-       Authorization: Bearer {{token}}
+    Authorization: Token {{token}}
 
 
 Required Postman environment variables
@@ -368,7 +368,7 @@ def build_url(endpoint: EndpointDefinition) -> str:
 def build_request_item(endpoint: EndpointDefinition, response_time_ms: int) -> dict[str, Any]:
     headers = [{"key": "Accept", "value": "application/json"}]
     if endpoint.endpoint_id != LOGIN_ENDPOINT_ID:
-        headers.append({"key": "Authorization", "value": "Bearer {{token}}"})
+        headers.append({"key": "Authorization", "value": "Token {{token}}"})
     if endpoint.body is not None:
         headers.append({"key": "Content-Type", "value": "application/json"})
 
@@ -443,7 +443,7 @@ def build_collection(
                 f"The signup request auto-populates {SIGNUP_USERNAME_VARIABLE}, "
                 f"{SIGNUP_PASSWORD_VARIABLE}, and {SIGNUP_EMAIL_VARIABLE} in a pre-request script."
             ),
-            f"The first request is {LOGIN_ENDPOINT_ID} and stores the JWT in pm.environment.set(\"token\", value).",
+            f"The first request is {LOGIN_ENDPOINT_ID} and stores the auth token in pm.environment.set(\"token\", value).",
         ]
     )
 
