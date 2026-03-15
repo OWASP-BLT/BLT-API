@@ -22,8 +22,11 @@ async def handle_projects(
         GET /projects/{id} - Get a specific project
         GET /projects/{id}/contributors - Get project contributors
     """
-    client = create_client(env)
-    
+    try:
+        client = create_client(env)
+    except Exception as e:
+        return error_response(f"Failed to initialize client: {str(e)}", status=503)
+
     # Get specific project
     if "id" in path_params:
         project_id = path_params["id"]
@@ -34,7 +37,10 @@ async def handle_projects(
         
         # Check if requesting contributors for project
         if path.endswith("/contributors"):
-            result = await client.get_project(int(project_id))
+            try:
+                result = await client.get_project(int(project_id))
+            except Exception as e:
+                return error_response(f"Request failed: {str(e)}", status=500)
             
             if result.get("error"):
                 return error_response(
@@ -53,7 +59,10 @@ async def handle_projects(
             })
         
         # Get project details
-        result = await client.get_project(int(project_id))
+        try:
+            result = await client.get_project(int(project_id))
+        except Exception as e:
+            return error_response(f"Request failed: {str(e)}", status=500)
         
         if result.get("error"):
             return error_response(
@@ -70,7 +79,10 @@ async def handle_projects(
     page, per_page = parse_pagination_params(query_params)
     search = query_params.get("search", query_params.get("q"))
     
-    result = await client.get_projects(page=page, per_page=per_page, search=search)
+    try:
+        result = await client.get_projects(page=page, per_page=per_page, search=search)
+    except Exception as e:
+        return error_response(f"Request failed: {str(e)}", status=500)
     
     if result.get("error"):
         return error_response(
