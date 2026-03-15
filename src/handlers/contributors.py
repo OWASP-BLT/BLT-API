@@ -21,8 +21,11 @@ async def handle_contributors(
         GET /contributors - List contributors with pagination
         GET /contributors/{id} - Get a specific contributor
     """
-    client = create_client(env)
-    
+    try:
+        client = create_client(env)
+    except Exception as e:
+        return error_response(f"Failed to initialize client: {str(e)}", status=503)
+
     # Get specific contributor
     if "id" in path_params:
         contributor_id = path_params["id"]
@@ -33,7 +36,10 @@ async def handle_contributors(
         
         # Note: This might need a specific endpoint in BLT backend
         # For now, we'll try to get from the contributors list
-        result = await client.get_contributors()
+        try:
+            result = await client.get_contributors()
+        except Exception as e:
+            return error_response(f"Request failed: {str(e)}", status=500)
         
         if result.get("error"):
             return error_response(
@@ -57,7 +63,10 @@ async def handle_contributors(
     # List contributors with pagination
     page, per_page = parse_pagination_params(query_params)
     
-    result = await client.get_contributors(page=page, per_page=per_page)
+    try:
+        result = await client.get_contributors(page=page, per_page=per_page)
+    except Exception as e:
+        return error_response(f"Request failed: {str(e)}", status=500)
     
     if result.get("error"):
         return error_response(

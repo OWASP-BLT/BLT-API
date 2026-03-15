@@ -21,8 +21,11 @@ async def handle_repos(
         GET /repos - List repositories with pagination
         GET /repos/{id} - Get a specific repository
     """
-    client = create_client(env)
-    
+    try:
+        client = create_client(env)
+    except Exception as e:
+        return error_response(f"Failed to initialize client: {str(e)}", status=503)
+
     # Get specific repository
     if "id" in path_params:
         repo_id = path_params["id"]
@@ -49,7 +52,10 @@ async def handle_repos(
     
     if org_id and org_id.isdigit():
         # Get repos for specific organization
-        result = await client.get_organization_repos(int(org_id))
+        try:
+            result = await client.get_organization_repos(int(org_id))
+        except Exception as e:
+            return error_response(f"Request failed: {str(e)}", status=500)
         
         if result.get("error"):
             return error_response(

@@ -24,8 +24,11 @@ async def handle_hunts(
         GET /hunts/previous - Get past hunts
         GET /hunts/upcoming - Get upcoming hunts
     """
-    client = create_client(env)
-    
+    try:
+        client = create_client(env)
+    except Exception as e:
+        return error_response(f"Failed to initialize client: {str(e)}", status=503)
+
     # Get specific hunt
     if "id" in path_params:
         hunt_id = path_params["id"]
@@ -34,7 +37,10 @@ async def handle_hunts(
         if not hunt_id.isdigit():
             return error_response("Invalid hunt ID", status=400)
         
-        result = await client.get_hunt(int(hunt_id))
+        try:
+            result = await client.get_hunt(int(hunt_id))
+        except Exception as e:
+            return error_response(f"Request failed: {str(e)}", status=500)
         
         if result.get("error"):
             return error_response(
@@ -49,7 +55,10 @@ async def handle_hunts(
     
     # Get active hunts
     if path.endswith("/active"):
-        result = await client.get_hunts(active=True)
+        try:
+            result = await client.get_hunts(active=True)
+        except Exception as e:
+            return error_response(f"Request failed: {str(e)}", status=500)
         
         if result.get("error"):
             return error_response(
@@ -65,7 +74,10 @@ async def handle_hunts(
     
     # Get previous hunts
     if path.endswith("/previous"):
-        result = await client.get_hunts(previous=True)
+        try:
+            result = await client.get_hunts(previous=True)
+        except Exception as e:
+            return error_response(f"Request failed: {str(e)}", status=500)
         
         if result.get("error"):
             return error_response(
@@ -81,7 +93,10 @@ async def handle_hunts(
     
     # Get upcoming hunts
     if path.endswith("/upcoming"):
-        result = await client.get_hunts(upcoming=True)
+        try:
+            result = await client.get_hunts(upcoming=True)
+        except Exception as e:
+            return error_response(f"Request failed: {str(e)}", status=500)
         
         if result.get("error"):
             return error_response(
@@ -103,13 +118,16 @@ async def handle_hunts(
     previous = query_params.get("previous") == "true"
     upcoming = query_params.get("upcoming") == "true"
     
-    result = await client.get_hunts(
+    try:
+        result = await client.get_hunts(
         page=page,
         per_page=per_page,
         active=active,
         previous=previous,
         upcoming=upcoming
-    )
+        )
+    except Exception as e:
+        return error_response(f"Request failed: {str(e)}", status=500)
     
     if result.get("error"):
         return error_response(
