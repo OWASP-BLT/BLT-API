@@ -135,6 +135,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
+from urllib.parse import urlencode
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -194,11 +195,28 @@ BODY_SAMPLES = {
 
 
 def build_endpoint_id(method: str, path: str) -> str:
+    """Generate a unique endpoint identifier from HTTP method and path.
+    
+    Args:
+        method: HTTP method (e.g., "GET", "POST").
+        path: URL path (e.g., "/bugs/{id}").
+    
+    Returns:
+        Endpoint ID like "get_bugs_id" (lowercase method_normalized_path).
+    """
     normalized_path = re.sub(r"[^a-z0-9]+", "_", path.lower()).strip("_")
     return f"{method.lower()}_{normalized_path or 'root'}"
 
 
 def classify_folder(path: str) -> str:
+    """Classify endpoint path into a Postman collection folder name.
+    
+    Args:
+        path: URL path (e.g., "/bugs/search").
+    
+    Returns:
+        Folder name like "Bugs" derived from first path segment.
+    """
     parts = [part for part in path.split("/") if part]
     if not parts:
         return "Misc"
@@ -206,10 +224,29 @@ def classify_folder(path: str) -> str:
 
 
 def substitute_path_params(path: str) -> str:
+    """Replace path parameters with placeholder values for request examples.
+    
+    Args:
+        path: URL path with parameters like "/bugs/{id}".
+    
+    Returns:
+        Path with placeholders replaced, e.g., "/bugs/1".
+    """
     return re.sub(r"\{[^}]+\}", "1", path)
 
 
 def discover_routes(main_file: Path = MAIN_FILE) -> list[EndpointDefinition]:
+    """Discover all API routes by parsing main.py with the ast module.
+    
+    Scans the main.py file for router.add_route() calls and extracts method,
+    path, and handler information. Excludes the homepage route ("/").
+    
+    Args:
+        main_file: Path to main.py file (default: src/main.py).
+    
+    Returns:
+        List of EndpointDefinition objects with route metadata.
+    """
     tree = ast.parse(main_file.read_text(), filename=str(main_file))
     routes: list[EndpointDefinition] = []
 
@@ -260,6 +297,22 @@ def reorder_endpoints(
     endpoints: Iterable[EndpointDefinition],
     ordered_ids: list[str] | None = None,
 ) -> list[EndpointDefinition]:
+    """Reorder endpoints with login first, then optional custom order.
+    
+    The login endpoint (POST /auth/signin) is always placed first to satisfy
+    the API's authentication flow. Other endpoints can be prioritized via
+    ordered_ids; remaining endpoints are appended in discovery order.
+    
+    Args:
+        endpoints: All discovered endpoints.
+        ordered_ids: Optional list of endpoint IDs to prioritize (first must be login).
+    
+    Returns:
+        Reordered list with login first and optional custom ordering applied.
+    
+    Raises:
+        ValueError: If login endpoint not found or invalid ordered_ids provided.
+    """
     discovered = list(endpoints)
     endpoint_map = {endpoint.endpoint_id: endpoint for endpoint in discovered}
 
@@ -291,6 +344,19 @@ def reorder_endpoints(
 
 
 def build_postman_tests(endpoint: EndpointDefinition, response_time_ms: int) -> str:
+    """Generate Postman test script for an endpoint.
+    
+    Creates JavaScript code that runs after the request to validate status code,
+    response time, and JSON structure. For login endpoint, also validates and
+    extracts the authentication token.
+    
+    Args:
+        endpoint: Endpoint to generate tests for.
+        response_time_ms: Maximum allowed response time threshold.
+    
+    Returns:
+        JavaScript code as a multi-line string suitable for Postman test script.
+    """
     lines = [
         f'pm.test("Status code is {endpoint.expected_status}", function () {{',
         f"    pm.response.to.have.status({endpoint.expected_status});",
@@ -326,6 +392,18 @@ def build_postman_tests(endpoint: EndpointDefinition, response_time_ms: int) -> 
 
 
 def build_prerequest_script(endpoint: EndpointDefinition) -> str | None:
+    """Generate Postman pre-request script for signup endpoint.
+    
+    Creates JavaScript code that runs before signup request to populate
+    signup_username, signup_password, and signup_email with fresh values
+    derived from base credentials. Returns None for non-signup endpoints.
+    
+    Args:
+        endpoint: Endpoint to generate pre-request script for.
+    
+    Returns:
+        JavaScript code as a string for Postman pre-request script, or None.
+    """
     if endpoint.endpoint_id != SIGNUP_ENDPOINT_ID:
         return None
 
@@ -357,15 +435,39 @@ def build_prerequest_script(endpoint: EndpointDefinition) -> str | None:
 
 
 def build_url(endpoint: EndpointDefinition) -> str:
+    """Build a Postman request URL with properly encoded query parameters.
+    
+    Constructs the full URL using the {{base_url}} Postman variable, substitutes
+    path parameters with placeholders (e.g., {id} -> 1), and appends query
+    parameters with proper URL encoding via urllib.parse.urlencode.
+    
+    Args:
+        endpoint: Endpoint to build URL for.
+    
+    Returns:
+        URL string like "{{base_url}}/bugs?page=1&per_page=20".
+    """
     path = substitute_path_params(endpoint.path)
     raw_url = f"{{{{base_url}}}}{path}"
     if endpoint.query_params:
-        query_string = "&".join(f"{key}={value}" for key, value in endpoint.query_params)
-        raw_url = f"{raw_url}?{query_string}"
+        raw_url = f"{raw_url}?{urlencode(endpoint.query_params)}"
     return raw_url
 
 
 def build_request_item(endpoint: EndpointDefinition, response_time_ms: int) -> dict[str, Any]:
+    """Build a complete Postman request item for a single endpoint.
+    
+    Constructs a Postman request with headers, URL, body (if applicable),
+    pre-request script (for signup), and test script. Includes Authorization
+    header for non-login endpoints.
+    
+    Args:
+        endpoint: Endpoint to generate request item for.
+        response_time_ms: Response time threshold for test assertions.
+    
+    Returns:
+        Dict representing a Postman request item (name, event, request, response).
+    """
     headers = [{"key": "Accept", "value": "application/json"}]
     if endpoint.endpoint_id != LOGIN_ENDPOINT_ID:
         headers.append({"key": "Authorization", "value": "Token {{token}}"})
@@ -418,6 +520,15 @@ def build_request_item(endpoint: EndpointDefinition, response_time_ms: int) -> d
 
 
 def build_items(endpoints: Iterable[EndpointDefinition], response_time_ms: int) -> list[dict[str, Any]]:
+    """Build Postman request items for a collection of endpoints.
+    
+    Args:
+        endpoints: Endpoints to generate request items for.
+        response_time_ms: Response time threshold for test assertions.
+    
+    Returns:
+        List of Postman request items (one per endpoint).
+    """
     return [
         build_request_item(endpoint, response_time_ms)
         for endpoint in endpoints
@@ -428,6 +539,18 @@ def build_collection(
     ordered_ids: list[str] | None = None,
     response_time_ms: int = DEFAULT_RESPONSE_TIME_MS,
 ) -> dict[str, Any]:
+    """Build a complete Postman Collection v2.1 from discovered routes.
+    
+    Discovers all routes, reorders with login first, generates request items,
+    and wraps them in a collection with metadata and environment setup info.
+    
+    Args:
+        ordered_ids: Optional list of endpoint IDs to prioritize in collection order.
+        response_time_ms: Response time threshold for generated test assertions.
+    
+    Returns:
+        Dict representing a Postman Collection v2.1 (info, item).
+    """
     routes = discover_routes()
     ordered_endpoints = reorder_endpoints(routes, ordered_ids)
 
@@ -458,10 +581,28 @@ def build_collection(
 
 
 def save_collection(output_path: Path, collection: dict[str, Any]) -> None:
-    output_path.write_text(json.dumps(collection, indent=2) + "\n")
+    """Write the Postman collection to a JSON file.
+    
+    Serializes the collection to JSON with 2-space indentation and creates
+    parent directories if needed. Writes with UTF-8 encoding for portability.
+    
+    Args:
+        output_path: Path where the collection JSON will be written.
+        collection: Postman collection dict to serialize.
+    
+    Raises:
+        OSError: If file write fails after directory creation.
+    """
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(collection, indent=2) + "\n", encoding="utf-8")
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for the collection generator.
+    
+    Returns:
+        Namespace with attributes: output, order, response_time_ms, list_endpoints.
+    """
     parser = argparse.ArgumentParser(
         description="Generate a Postman Collection v2.1 for the BLT API."
     )
@@ -495,6 +636,11 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """Main entry point: parse args, generate/save collection, or list endpoints.
+    
+    Returns:
+        Exit code (0 for success, 1 for errors).
+    """
     args = parse_args()
     endpoints = discover_routes()
 
