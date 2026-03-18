@@ -8,6 +8,28 @@ from workers import Response
 from libs.db import get_db_safe
 from models import Organization, Domain, Bug, User, Tag, OrganizationManager, OrganizationTag, OrganizationIntegration
 
+ALLOWED_ORG_TYPES = {"company", "nonprofit", "education"}
+
+
+async def _get_organization_stats(db, org_id_int: int) -> dict:
+    """Shared stats aggregation used by /stats endpoint and include=stats."""
+    domain_count = await Domain.objects(db)\
+        .filter(organization=org_id_int).count()
+    bug_count = await Bug.objects(db)\
+        .join("domains", on="bugs.domain = domains.id", join_type="INNER")\
+        .filter(**{"domains.organization": org_id_int}).count()
+    verified_bug_count = await Bug.objects(db)\
+        .join("domains", on="bugs.domain = domains.id", join_type="INNER")\
+        .filter(**{"domains.organization": org_id_int, "bugs.verified": 1}).count()
+    manager_count = await OrganizationManager.objects(db)\
+        .filter(organization_id=org_id_int).count()
+    return {
+        "domain_count": domain_count,
+        "bug_count": bug_count,
+        "verified_bug_count": verified_bug_count,
+        "manager_count": manager_count,
+    }
+
 
 async def handle_organizations(
     request: Any,
@@ -87,10 +109,14 @@ async def handle_organizations(
         # GET /organizations/{id}/managers
         if path.endswith("/managers"):
             try:
+                page, per_page = parse_pagination_params(query_params)
+                total = await OrganizationManager.objects(db)\
+                    .filter(organization_id=org_id_int).count()
                 managers = await OrganizationManager.objects(db)\
                     .join("users", on="organization_managers.user_id = users.id", join_type="INNER")\
                     .filter(**{"organization_managers.organization_id": org_id_int})\
                     .order_by('-organization_managers.created')\
+                    .paginate(page, per_page)\
                     .values('users.id', 'users.username', 'users.email',
                             'users.user_avatar', 'users.total_score',
                             'organization_managers.created AS joined_as_manager')\
@@ -98,10 +124,14 @@ async def handle_organizations(
                 return Response.json({
                     "success": True,
                     "data": managers,
-                    "count": len(managers)
+                    "pagination": {
+                        "page": page,
+                        "per_page": per_page,
+                        "total": total,
+                    }
                 })
             except Exception as e:
-                print(f"Error failed to fetch managers: {e}")
+                print(f"Error fetching managers: {e}")
                 return error_response("Failed to fetch managers. Please try again later.", status=500)
 
         # GET /organizations/{id}/tags
@@ -143,25 +173,8 @@ async def handle_organizations(
         # GET /organizations/{id}/stats
         if path.endswith("/stats"):
             try:
-                domain_count = await Domain.objects(db)\
-                    .filter(organization=org_id_int).count()
-                bug_count = await Bug.objects(db)\
-                    .join("domains", on="bugs.domain = domains.id", join_type="INNER")\
-                    .filter(**{"domains.organization": org_id_int}).count()
-                verified_bug_count = await Bug.objects(db)\
-                    .join("domains", on="bugs.domain = domains.id", join_type="INNER")\
-                    .filter(**{"domains.organization": org_id_int, "bugs.verified": 1}).count()
-                manager_count = await OrganizationManager.objects(db)\
-                    .filter(organization_id=org_id_int).count()
-                return Response.json({
-                    "success": True,
-                    "data": {
-                        "domain_count": domain_count,
-                        "bug_count": bug_count,
-                        "verified_bug_count": verified_bug_count,
-                        "manager_count": manager_count
-                    }
-                })
+                stats = await _get_organization_stats(db, org_id_int)
+                return Response.json({"success": True, "data": stats})
             except Exception as e:
                 print(f"Error failed to fetch stats: {e}")
                 return error_response("Failed to fetch stats. Please try again later.", status=500)
@@ -182,7 +195,7 @@ async def handle_organizations(
                 return error_response("Organization not found", status=404)
 
             # Optionally include related data
-            include_related = [i.strip() for i in query_params.get("include", "").split(",")]
+            include_related = [i.strip().lower() for i in query_params.get("include", "").split(",")]
 
             if "managers" in include_related:
                 org["managers"] = await OrganizationManager.objects(db)\
@@ -199,22 +212,7 @@ async def handle_organizations(
                     .all()
 
             if "stats" in include_related:
-                domain_count = await Domain.objects(db)\
-                    .filter(organization=org_id_int).count()
-                bug_count = await Bug.objects(db)\
-                    .join("domains", on="bugs.domain = domains.id", join_type="INNER")\
-                    .filter(**{"domains.organization": org_id_int}).count()
-                verified_bug_count = await Bug.objects(db)\
-                    .join("domains", on="bugs.domain = domains.id", join_type="INNER")\
-                    .filter(**{"domains.organization": org_id_int, "bugs.verified": 1}).count()
-                manager_count = await OrganizationManager.objects(db)\
-                    .filter(organization_id=org_id_int).count()
-                org["stats"] = {
-                    "domain_count": domain_count,
-                    "bug_count": bug_count,
-                    "verified_bug_count": verified_bug_count,
-                    "manager_count": manager_count,
-                }
+                org["stats"] = await _get_organization_stats(db, org_id_int)
 
             return Response.json({"success": True, "data": org})
         except Exception as e:
@@ -239,7 +237,7 @@ async def handle_organizations(
 
         # Build shared filter kwargs for both list and count queries
         filter_kwargs = {}
-        if org_type and org_type in ["company", "nonprofit", "education"]:
+        if org_type and org_type in ALLOWED_ORG_TYPES:
             filter_kwargs["type"] = org_type
         if is_active:
             if is_active.lower() in ["true", "1", "yes"]:
