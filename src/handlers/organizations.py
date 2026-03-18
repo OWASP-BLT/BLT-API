@@ -59,8 +59,8 @@ async def handle_organizations(
                 total = await Domain.objects(db).filter(organization=org_id_int).count()
                 return paginated_response(domains, page=page, per_page=per_page, total=total)
             except Exception as e:
-                print(f"Error in Failed to fetch domains: {e}")
-                return error_response("Failed to fetch domains failed. Please try again later.", status=500)
+                print(f"Error failed to fetch domains: {e}")
+                return error_response("Failed to fetch domains. Please try again later.", status=500)
 
         # GET /organizations/{id}/bugs
         if path.endswith("/bugs"):
@@ -81,8 +81,8 @@ async def handle_organizations(
                     .count()
                 return paginated_response(bugs, page=page, per_page=per_page, total=total)
             except Exception as e:
-                print(f"Error in Failed to fetch bugs: {e}")
-                return error_response("Failed to fetch bugs failed. Please try again later.", status=500)
+                print(f"Error failed to fetch bugs: {e}")
+                return error_response("Failed to fetch bugs. Please try again later.", status=500)
 
         # GET /organizations/{id}/managers
         if path.endswith("/managers"):
@@ -101,8 +101,8 @@ async def handle_organizations(
                     "count": len(managers)
                 })
             except Exception as e:
-                print(f"Error in Failed to fetch managers: {e}")
-                return error_response("Failed to fetch managers failed. Please try again later.", status=500)
+                print(f"Error failed to fetch managers: {e}")
+                return error_response("Failed to fetch managers. Please try again later.", status=500)
 
         # GET /organizations/{id}/tags
         if path.endswith("/tags"):
@@ -119,8 +119,8 @@ async def handle_organizations(
                     "count": len(tags)
                 })
             except Exception as e:
-                print(f"Error in Failed to fetch tags: {e}")
-                return error_response("Failed to fetch tags failed. Please try again later.", status=500)
+                print(f"Error failed to fetch tags: {e}")
+                return error_response("Failed to fetch tags. Please try again later.", status=500)
 
         # GET /organizations/{id}/integrations
         if path.endswith("/integrations"):
@@ -137,8 +137,8 @@ async def handle_organizations(
                     "count": len(integrations)
                 })
             except Exception as e:
-                print(f"Error in Failed to fetch integrations: {e}")
-                return error_response("Failed to fetch integrations failed. Please try again later.", status=500)
+                print(f"Error failed to fetch integrations: {e}")
+                return error_response("Failed to fetch integrations. Please try again later.", status=500)
 
         # GET /organizations/{id}/stats
         if path.endswith("/stats"):
@@ -163,8 +163,8 @@ async def handle_organizations(
                     }
                 })
             except Exception as e:
-                print(f"Error in Failed to fetch stats: {e}")
-                return error_response("Failed to fetch stats failed. Please try again later.", status=500)
+                print(f"Error failed to fetch stats: {e}")
+                return error_response("Failed to fetch stats. Please try again later.", status=500)
 
         # GET /organizations/{id} — organization details
         try:
@@ -204,8 +204,8 @@ async def handle_organizations(
 
             return Response.json({"success": True, "data": org})
         except Exception as e:
-            print(f"Error in Failed to fetch organization: {e}")
-            return error_response("Failed to fetch organization failed. Please try again later.", status=500)
+            print(f"Error failed to fetch organization: {e}")
+            return error_response("Failed to fetch organization. Please try again later.", status=500)
 
     # GET /organizations — list with pagination and search
     try:
@@ -255,5 +255,5 @@ async def handle_organizations(
 
         return paginated_response(organizations, page=page, per_page=per_page, total=total)
     except Exception as e:
-        print(f"Error in Failed to fetch organizations: {e}")
-        return error_response("Failed to fetch organizations failed. Please try again later.", status=500)
+        print(f"Error failed to fetch organizations: {e}")
+        return error_response("Failed to fetch organizations. Please try again later.", status=500)
