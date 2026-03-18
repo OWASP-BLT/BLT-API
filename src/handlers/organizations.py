@@ -237,8 +237,14 @@ async def handle_organizations(
 
         # Build shared filter kwargs for both list and count queries
         filter_kwargs = {}
-        if org_type and org_type in ALLOWED_ORG_TYPES:
-            filter_kwargs["type"] = org_type
+        if org_type:
+            if org_type in ALLOWED_ORG_TYPES:
+                filter_kwargs["type"] = org_type
+            else:
+                return error_response(
+                    f"Invalid value for type: {org_type!r}. Use one of: {', '.join(sorted(ALLOWED_ORG_TYPES))}.",
+                    status=400
+                )
         if is_active:
             if is_active.lower() in ["true", "1", "yes"]:
                 filter_kwargs["is_active"] = 1
