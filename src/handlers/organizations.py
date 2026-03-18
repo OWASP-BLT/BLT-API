@@ -111,7 +111,8 @@ async def handle_organizations(
             try:
                 page, per_page = parse_pagination_params(query_params)
                 total = await OrganizationManager.objects(db)\
-                    .filter(organization_id=org_id_int).count()
+                    .join("users", on="organization_managers.user_id = users.id", join_type="INNER")\
+                    .filter(**{"organization_managers.organization_id": org_id_int}).count()
                 managers = await OrganizationManager.objects(db)\
                     .join("users", on="organization_managers.user_id = users.id", join_type="INNER")\
                     .filter(**{"organization_managers.organization_id": org_id_int})\
