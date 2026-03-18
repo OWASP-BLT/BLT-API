@@ -2,10 +2,13 @@
 Bug Hunts handler for the BLT API.
 """
 
+import logging
 from typing import Any, Dict
 from utils import json_response, error_response, paginated_response, parse_pagination_params
 from client import create_client
 
+
+logger = logging.getLogger(__name__)
 
 async def handle_hunts(
     request: Any,
@@ -27,7 +30,8 @@ async def handle_hunts(
     try:
         client = create_client(env)
     except Exception as e:
-        return error_response(f"Failed to initialize client: {str(e)}", status=503)
+        logger.error("Failed to initialize client in hunts: %s", str(e))
+        return error_response("Service Unavailable", status=503)
 
     # Get specific hunt
     if "id" in path_params:
@@ -40,7 +44,8 @@ async def handle_hunts(
         try:
             result = await client.get_hunt(int(hunt_id))
         except Exception as e:
-            return error_response(f"Request failed: {str(e)}", status=500)
+            logger.error("Request failed in hunts: %s", str(e))
+            return error_response("Internal Server Error", status=500)
         
         if result.get("error"):
             return error_response(
@@ -58,7 +63,8 @@ async def handle_hunts(
         try:
             result = await client.get_hunts(active=True)
         except Exception as e:
-            return error_response(f"Request failed: {str(e)}", status=500)
+            logger.error("Request failed in hunts: %s", str(e))
+            return error_response("Internal Server Error", status=500)
         
         if result.get("error"):
             return error_response(
@@ -77,7 +83,8 @@ async def handle_hunts(
         try:
             result = await client.get_hunts(previous=True)
         except Exception as e:
-            return error_response(f"Request failed: {str(e)}", status=500)
+            logger.error("Request failed in hunts: %s", str(e))
+            return error_response("Internal Server Error", status=500)
         
         if result.get("error"):
             return error_response(
@@ -96,7 +103,8 @@ async def handle_hunts(
         try:
             result = await client.get_hunts(upcoming=True)
         except Exception as e:
-            return error_response(f"Request failed: {str(e)}", status=500)
+            logger.error("Request failed in hunts: %s", str(e))
+            return error_response("Internal Server Error", status=500)
         
         if result.get("error"):
             return error_response(
@@ -120,14 +128,15 @@ async def handle_hunts(
     
     try:
         result = await client.get_hunts(
-        page=page,
-        per_page=per_page,
-        active=active,
-        previous=previous,
-        upcoming=upcoming
+            page=page,
+            per_page=per_page,
+            active=active,
+            previous=previous,
+            upcoming=upcoming
         )
     except Exception as e:
-        return error_response(f"Request failed: {str(e)}", status=500)
+        logger.error("Request failed in hunts: %s", str(e))
+        return error_response("Internal Server Error", status=500)
     
     if result.get("error"):
         return error_response(
