@@ -199,8 +199,22 @@ async def handle_organizations(
                     .all()
 
             if "stats" in include_related:
-                org["domain_count"] = await Domain.objects(db)\
+                domain_count = await Domain.objects(db)\
                     .filter(organization=org_id_int).count()
+                bug_count = await Bug.objects(db)\
+                    .join("domains", on="bugs.domain = domains.id", join_type="INNER")\
+                    .filter(**{"domains.organization": org_id_int}).count()
+                verified_bug_count = await Bug.objects(db)\
+                    .join("domains", on="bugs.domain = domains.id", join_type="INNER")\
+                    .filter(**{"domains.organization": org_id_int, "bugs.verified": 1}).count()
+                manager_count = await OrganizationManager.objects(db)\
+                    .filter(organization_id=org_id_int).count()
+                org["stats"] = {
+                    "domain_count": domain_count,
+                    "bug_count": bug_count,
+                    "verified_bug_count": verified_bug_count,
+                    "manager_count": manager_count,
+                }
 
             return Response.json({"success": True, "data": org})
         except Exception as e:
@@ -228,7 +242,15 @@ async def handle_organizations(
         if org_type and org_type in ["company", "nonprofit", "education"]:
             filter_kwargs["type"] = org_type
         if is_active:
-            filter_kwargs["is_active"] = 1 if is_active.lower() in ["true", "1", "yes"] else 0
+            if is_active.lower() in ["true", "1", "yes"]:
+                filter_kwargs["is_active"] = 1
+            elif is_active.lower() in ["false", "0", "no"]:
+                filter_kwargs["is_active"] = 0
+            else:
+                return error_response(
+                    f"Invalid value for is_active: {is_active!r}. Use true/false.",
+                    status=400
+                )
 
         if search:
             qs = qs.filter_or(**{
