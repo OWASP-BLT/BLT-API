@@ -5,6 +5,7 @@ import time
 from typing import Any, Dict, Optional
 
 from libs.db import get_db_safe
+
 from utils import parse_json_body, error_response, cors_headers, check_required_fields, extract_id_from_result
 from libs.constant import __HASHING_ITERATIONS
 from libs.jwt_utils import create_access_token, decode_jwt
@@ -90,12 +91,13 @@ async def handle_signup(
             return error_response("Database connection error", 500)
 
         # Check if username or email already exists
-        existing_user = await User.objects(db).filter(username=body["username"]).first()
-        if not existing_user:
-            existing_user = await User.objects(db).filter(email=body["email"]).first()
+        existing_username = await User.objects(db).filter(username=body["username"]).first()
+        if existing_username:
+            return error_response("Username already taken", 400)
 
-        if existing_user:
-            return error_response("User already exists", 400)
+        existing_email = await User.objects(db).filter(email=body["email"]).first()
+        if existing_email:
+            return error_response("Email already registered", 400)
 
         # Hash the password using PBKDF2
         salt = secrets.token_hex(16)
@@ -103,7 +105,15 @@ async def handle_signup(
         hashed_password = f"{salt}${password_hash.hex()}"
 
         # Insert the new user into the database
-        new_user = await User.create(db, username=body["username"], email=body["email"], password=hashed_password, is_active=False)
+        try:
+            new_user = await User.create(db, username=body["username"], email=body["email"], password=hashed_password, is_active=False)
+        except Exception as e:
+            error_msg = str(e).lower()
+            if "unique" in error_msg and "username" in error_msg:
+                return error_response("Username already taken", 400)
+            if "unique" in error_msg and "email" in error_msg:
+                return error_response("Email already registered", 400)
+            raise
         user_id = new_user.get("id") if new_user else None
 
         # send verification email here using Mailgun
