@@ -182,7 +182,7 @@ async def handle_organizations(
                 return error_response("Organization not found", status=404)
 
             # Optionally include related data
-            include_related = query_params.get("include", "").split(",")
+            include_related = [i.strip() for i in query_params.get("include", "").split(",")]
 
             if "managers" in include_related:
                 org["managers"] = await OrganizationManager.objects(db)\
