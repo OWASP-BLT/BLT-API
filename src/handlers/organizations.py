@@ -2,10 +2,34 @@
 Organizations handler for the BLT API.
 """
 
-from typing import Any, Dict, List
-from utils import convert_d1_results, error_response, paginated_response, parse_pagination_params, success_response
+from typing import Any, Dict
+from utils import error_response, paginated_response, parse_pagination_params
 from workers import Response
 from libs.db import get_db_safe
+from models import Organization, Domain, Bug, User, Tag, OrganizationManager, OrganizationTag, OrganizationIntegration
+
+ALLOWED_ORG_TYPES = {"company", "nonprofit", "education"}
+
+
+async def _get_organization_stats(db, org_id_int: int) -> dict:
+    """Shared stats aggregation used by /stats endpoint and include=stats."""
+    domain_count = await Domain.objects(db)\
+        .filter(organization=org_id_int).count()
+    bug_count = await Bug.objects(db)\
+        .join("domains", on="bugs.domain = domains.id", join_type="INNER")\
+        .filter(**{"domains.organization": org_id_int}).count()
+    verified_bug_count = await Bug.objects(db)\
+        .join("domains", on="bugs.domain = domains.id", join_type="INNER")\
+        .filter(**{"domains.organization": org_id_int, "bugs.verified": 1}).count()
+    manager_count = await OrganizationManager.objects(db)\
+        .filter(organization_id=org_id_int).count()
+    return {
+        "domain_count": domain_count,
+        "bug_count": bug_count,
+        "verified_bug_count": verified_bug_count,
+        "manager_count": manager_count,
+    }
+
 
 async def handle_organizations(
     request: Any,
@@ -16,7 +40,7 @@ async def handle_organizations(
 ) -> Any:
     """
     Handle organization-related requests.
-    
+
     Endpoints:
         GET /organizations - List organizations with pagination and search
         GET /organizations/{id} - Get a specific organization with details
@@ -30,266 +54,233 @@ async def handle_organizations(
     try:
         db = await get_db_safe(env)
     except Exception as e:
-        return error_response(str(e), status=503)
-    
+        print(f"Database connection error: {e}")
+        return error_response("Service temporarily unavailable. Please try again later.", status=503)
+
     # Get specific organization
     if "id" in path_params:
         org_id = path_params["id"]
-        
+
         # Validate ID is numeric
         if not org_id.isdigit():
             return error_response("Invalid organization ID", status=400)
-        
+
         org_id_int = int(org_id)
-        
-        # Get organization domains
+
+        # GET /organizations/{id}/domains
         if path.endswith("/domains"):
-            page, per_page = parse_pagination_params(query_params)
-            
-            # Get domains for this organization
-            result = await db.prepare('''
-                SELECT d.id, d.name, d.url, d.logo, d.clicks, d.email, 
-                       d.twitter, d.facebook, d.github, d.created, d.is_active
-                FROM domains d
-                WHERE d.organization = ?
-                ORDER BY d.created DESC
-                LIMIT ? OFFSET ?
-            ''').bind(org_id_int, per_page, (page - 1) * per_page).all()
-            
-            domains = convert_d1_results(result.results if hasattr(result, 'results') else [])
-            
-            # Get total count
-            count_result = await db.prepare('''
-                SELECT COUNT(*) as total FROM domains WHERE organization = ?
-            ''').bind(org_id_int).first()
-            
-            count_data = count_result.to_py() if hasattr(count_result, 'to_py') else dict(count_result) if count_result else {}
-            total = count_data.get("total", 0)
-            
-            return paginated_response(domains, page=page, per_page=per_page, total=total)
-        
-        # Get bugs from organization's domains
+            try:
+                page, per_page = parse_pagination_params(query_params)
+                domains = await Domain.objects(db)\
+                    .filter(organization=org_id_int)\
+                    .order_by('-created')\
+                    .paginate(page, per_page)\
+                    .values('id', 'name', 'url', 'logo', 'clicks', 'email',
+                            'twitter', 'facebook', 'github', 'created', 'is_active')\
+                    .all()
+                total = await Domain.objects(db).filter(organization=org_id_int).count()
+                return paginated_response(domains, page=page, per_page=per_page, total=total)
+            except Exception as e:
+                print(f"Error failed to fetch domains: {e}")
+                return error_response("Failed to fetch domains. Please try again later.", status=500)
+
+        # GET /organizations/{id}/bugs
         if path.endswith("/bugs"):
-            page, per_page = parse_pagination_params(query_params)
-            
-            result = await db.prepare('''
-                SELECT b.id, b.url, b.description, b.verified, b.score, 
-                       b.status, b.created, b.domain, d.name as domain_name
-                FROM bugs b
-                JOIN domains d ON b.domain = d.id
-                WHERE d.organization = ?
-                ORDER BY b.created DESC
-                LIMIT ? OFFSET ?
-            ''').bind(org_id_int, per_page, (page - 1) * per_page).all()
-            
-            bugs = convert_d1_results(result.results if hasattr(result, 'results') else [])
-            
-            # Get total count
-            count_result = await db.prepare('''
-                SELECT COUNT(*) as total 
-                FROM bugs b
-                JOIN domains d ON b.domain = d.id
-                WHERE d.organization = ?
-            ''').bind(org_id_int).first()
-            
-            count_data = count_result.to_py() if hasattr(count_result, 'to_py') else dict(count_result) if count_result else {}
-            total = count_data.get("total", 0)
-            
-            return paginated_response(bugs, page=page, per_page=per_page, total=total)
-        
-        # Get organization managers
+            try:
+                page, per_page = parse_pagination_params(query_params)
+                bugs = await Bug.objects(db)\
+                    .join("domains", on="bugs.domain = domains.id", join_type="INNER")\
+                    .filter(**{"domains.organization": org_id_int})\
+                    .order_by('-bugs.created')\
+                    .paginate(page, per_page)\
+                    .values('bugs.id', 'bugs.url', 'bugs.description', 'bugs.verified',
+                            'bugs.score', 'bugs.status', 'bugs.created',
+                            'bugs.domain', 'domains.name AS domain_name')\
+                    .all()
+                total = await Bug.objects(db)\
+                    .join("domains", on="bugs.domain = domains.id", join_type="INNER")\
+                    .filter(**{"domains.organization": org_id_int})\
+                    .count()
+                return paginated_response(bugs, page=page, per_page=per_page, total=total)
+            except Exception as e:
+                print(f"Error failed to fetch bugs: {e}")
+                return error_response("Failed to fetch bugs. Please try again later.", status=500)
+
+        # GET /organizations/{id}/managers
         if path.endswith("/managers"):
-            result = await db.prepare('''
-                SELECT u.id, u.username, u.email, u.user_avatar, u.total_score,
-                       om.created as joined_as_manager
-                FROM organization_managers om
-                JOIN users u ON om.user_id = u.id
-                WHERE om.organization_id = ?
-                ORDER BY om.created DESC
-            ''').bind(org_id_int).all()
-            
-            managers = convert_d1_results(result.results if hasattr(result, 'results') else [])
-            
-            return Response.json({
-                "success": True,
-                "data": managers,
-                "count": len(managers)
-            })
-        
-        # Get organization tags
+            try:
+                page, per_page = parse_pagination_params(query_params)
+                total = await OrganizationManager.objects(db)\
+                    .join("users", on="organization_managers.user_id = users.id", join_type="INNER")\
+                    .filter(**{"organization_managers.organization_id": org_id_int}).count()
+                managers = await OrganizationManager.objects(db)\
+                    .join("users", on="organization_managers.user_id = users.id", join_type="INNER")\
+                    .filter(**{"organization_managers.organization_id": org_id_int})\
+                    .order_by('-organization_managers.created')\
+                    .paginate(page, per_page)\
+                    .values('users.id', 'users.username', 'users.email',
+                            'users.user_avatar', 'users.total_score',
+                            'organization_managers.created AS joined_as_manager')\
+                    .all()
+                return Response.json({
+                    "success": True,
+                    "data": managers,
+                    "pagination": {
+                        "page": page,
+                        "per_page": per_page,
+                        "total": total,
+                    }
+                })
+            except Exception as e:
+                print(f"Error fetching managers: {e}")
+                return error_response("Failed to fetch managers. Please try again later.", status=500)
+
+        # GET /organizations/{id}/tags
         if path.endswith("/tags"):
-            result = await db.prepare('''
-                SELECT t.id, t.name, ot.created
-                FROM organization_tags ot
-                JOIN tags t ON ot.tag_id = t.id
-                WHERE ot.organization_id = ?
-                ORDER BY t.name ASC
-            ''').bind(org_id_int).all()
-            
-            tags = convert_d1_results(result.results if hasattr(result, 'results') else [])
-            
-            return Response.json({
-                "success": True,
-                "data": tags,
-                "count": len(tags)
-            })
-        
-        # Get organization integrations
+            try:
+                tags = await OrganizationTag.objects(db)\
+                    .join("tags", on="organization_tags.tag_id = tags.id", join_type="INNER")\
+                    .filter(**{"organization_tags.organization_id": org_id_int})\
+                    .order_by('tags.name')\
+                    .values('tags.id', 'tags.name', 'organization_tags.created')\
+                    .all()
+                return Response.json({
+                    "success": True,
+                    "data": tags,
+                    "count": len(tags)
+                })
+            except Exception as e:
+                print(f"Error failed to fetch tags: {e}")
+                return error_response("Failed to fetch tags. Please try again later.", status=500)
+
+        # GET /organizations/{id}/integrations
         if path.endswith("/integrations"):
-            result = await db.prepare('''
-                SELECT id, integration_type, integration_name, 
-                       webhook_url, is_active, created, modified
-                FROM organization_integrations
-                WHERE organization_id = ?
-                ORDER BY integration_type ASC
-            ''').bind(org_id_int).all()
-            
-            integrations = convert_d1_results(result.results if hasattr(result, 'results') else [])
-            
-            return Response.json({
-                "success": True,
-                "data": integrations,
-                "count": len(integrations)
-            })
-        
-        # Get organization statistics
+            try:
+                integrations = await OrganizationIntegration.objects(db)\
+                    .filter(organization_id=org_id_int)\
+                    .order_by('integration_type')\
+                    .values('id', 'integration_type', 'integration_name',
+                            'webhook_url', 'is_active', 'created', 'modified')\
+                    .all()
+                return Response.json({
+                    "success": True,
+                    "data": integrations,
+                    "count": len(integrations)
+                })
+            except Exception as e:
+                print(f"Error failed to fetch integrations: {e}")
+                return error_response("Failed to fetch integrations. Please try again later.", status=500)
+
+        # GET /organizations/{id}/stats
         if path.endswith("/stats"):
-            # Get domain count
-            domain_count_result = await db.prepare('''
-                SELECT COUNT(*) as count FROM domains WHERE organization = ?
-            ''').bind(org_id_int).first()
-            domain_count_data = domain_count_result.to_py() if hasattr(domain_count_result, 'to_py') else dict(domain_count_result) if domain_count_result else {}
-            
-            # Get bug count
-            bug_count_result = await db.prepare('''
-                SELECT COUNT(*) as count 
-                FROM bugs b
-                JOIN domains d ON b.domain = d.id
-                WHERE d.organization = ?
-            ''').bind(org_id_int).first()
-            bug_count_data = bug_count_result.to_py() if hasattr(bug_count_result, 'to_py') else dict(bug_count_result) if bug_count_result else {}
-            
-            # Get verified bug count
-            verified_bug_result = await db.prepare('''
-                SELECT COUNT(*) as count 
-                FROM bugs b
-                JOIN domains d ON b.domain = d.id
-                WHERE d.organization = ? AND b.verified = 1
-            ''').bind(org_id_int).first()
-            verified_bug_data = verified_bug_result.to_py() if hasattr(verified_bug_result, 'to_py') else dict(verified_bug_result) if verified_bug_result else {}
-            
-            # Get manager count
-            manager_count_result = await db.prepare('''
-                SELECT COUNT(*) as count FROM organization_managers WHERE organization_id = ?
-            ''').bind(org_id_int).first()
-            manager_count_data = manager_count_result.to_py() if hasattr(manager_count_result, 'to_py') else dict(manager_count_result) if manager_count_result else {}
-            
-            stats = {
-                "domain_count": domain_count_data.get("count", 0),
-                "bug_count": bug_count_data.get("count", 0),
-                "verified_bug_count": verified_bug_data.get("count", 0),
-                "manager_count": manager_count_data.get("count", 0)
-            }
-            
-            return Response.json({
-                "success": True,
-                "data": stats
+            try:
+                stats = await _get_organization_stats(db, org_id_int)
+                return Response.json({"success": True, "data": stats})
+            except Exception as e:
+                print(f"Error failed to fetch stats: {e}")
+                return error_response("Failed to fetch stats. Please try again later.", status=500)
+
+        # GET /organizations/{id} — organization details
+        try:
+            org = await Organization.objects(db)\
+                .join("users", on="organization.admin = users.id", join_type="LEFT")\
+                .filter(**{"organization.id": org_id_int})\
+                .values('organization.id', 'organization.name', 'organization.slug',
+                        'organization.description', 'organization.logo', 'organization.url',
+                        'organization.type', 'organization.is_active', 'organization.team_points',
+                        'organization.created', 'organization.tagline',
+                        'users.username', 'users.email')\
+                .first()
+
+            if not org:
+                return error_response("Organization not found", status=404)
+
+            # Optionally include related data
+            include_related = [i.strip().lower() for i in query_params.get("include", "").split(",")]
+
+            if "managers" in include_related:
+                org["managers"] = await OrganizationManager.objects(db)\
+                    .join("users", on="organization_managers.user_id = users.id", join_type="INNER")\
+                    .filter(**{"organization_managers.organization_id": org_id_int})\
+                    .values('users.id', 'users.username', 'users.user_avatar')\
+                    .all()
+
+            if "tags" in include_related:
+                org["tags"] = await OrganizationTag.objects(db)\
+                    .join("tags", on="organization_tags.tag_id = tags.id", join_type="INNER")\
+                    .filter(**{"organization_tags.organization_id": org_id_int})\
+                    .values('tags.id', 'tags.name')\
+                    .all()
+
+            if "stats" in include_related:
+                org["stats"] = await _get_organization_stats(db, org_id_int)
+
+            return Response.json({"success": True, "data": org})
+        except Exception as e:
+            print(f"Error failed to fetch organization: {e}")
+            return error_response("Failed to fetch organization. Please try again later.", status=500)
+
+    # GET /organizations — list with pagination and search
+    try:
+        page, per_page = parse_pagination_params(query_params)
+        search = query_params.get("search", query_params.get("q", "")).strip()
+        org_type = query_params.get("type", "").strip()
+        is_active = query_params.get("is_active", "").strip()
+
+        qs = Organization.objects(db)\
+            .join("users", on="organization.admin = users.id", join_type="LEFT")\
+            .values('organization.id', 'organization.name', 'organization.slug',
+                    'organization.description', 'organization.logo', 'organization.url',
+                    'organization.type', 'organization.is_active', 'organization.team_points',
+                    'organization.created', 'organization.tagline',
+                    'users.username')\
+            .order_by('-organization.created')
+
+        # Build shared filter kwargs for both list and count queries
+        filter_kwargs = {}
+        if org_type:
+            if org_type in ALLOWED_ORG_TYPES:
+                filter_kwargs["type"] = org_type
+            else:
+                return error_response(
+                    f"Invalid value for type: {org_type!r}. Use one of: {', '.join(sorted(ALLOWED_ORG_TYPES))}.",
+                    status=400
+                )
+        if is_active:
+            if is_active.lower() in ["true", "1", "yes"]:
+                filter_kwargs["is_active"] = 1
+            elif is_active.lower() in ["false", "0", "no"]:
+                filter_kwargs["is_active"] = 0
+            else:
+                return error_response(
+                    f"Invalid value for is_active: {is_active!r}. Use true/false.",
+                    status=400
+                )
+
+        if search:
+            qs = qs.filter_or(**{
+                "organization.name__icontains": search,
+                "organization.slug__icontains": search,
+                "organization.description__icontains": search,
             })
-        
-        # Get organization details with related data
-        org_result = await db.prepare('''
-            SELECT o.*, u.username as admin_username, u.email as admin_email
-            FROM organization o
-            LEFT JOIN users u ON o.admin = u.id
-            WHERE o.id = ?
-        ''').bind(org_id_int).first()
-        
-        if not org_result:
-            return error_response("Organization not found", status=404)
-        
-        org = org_result.to_py() if hasattr(org_result, 'to_py') else dict(org_result)
-        
-        # Optionally include related data if requested
-        include_related = query_params.get("include", "").split(",")
-        
-        if "managers" in include_related:
-            managers_result = await db.prepare('''
-                SELECT u.id, u.username, u.user_avatar
-                FROM organization_managers om
-                JOIN users u ON om.user_id = u.id
-                WHERE om.organization_id = ?
-            ''').bind(org_id_int).all()
-            org["managers"] = convert_d1_results(managers_result.results if hasattr(managers_result, 'results') else [])
-        
-        if "tags" in include_related:
-            tags_result = await db.prepare('''
-                SELECT t.id, t.name
-                FROM organization_tags ot
-                JOIN tags t ON ot.tag_id = t.id
-                WHERE ot.organization_id = ?
-            ''').bind(org_id_int).all()
-            org["tags"] = convert_d1_results(tags_result.results if hasattr(tags_result, 'results') else [])
-        
-        if "stats" in include_related:
-            domain_count_result = await db.prepare('''
-                SELECT COUNT(*) as count FROM domains WHERE organization = ?
-            ''').bind(org_id_int).first()
-            domain_count_data = domain_count_result.to_py() if hasattr(domain_count_result, 'to_py') else dict(domain_count_result) if domain_count_result else {}
-            org["domain_count"] = domain_count_data.get("count", 0)
-        
-        return Response.json({
-            "success": True,
-            "data": org
-        })
-    
-    # List organizations with pagination and search
-    page, per_page = parse_pagination_params(query_params)
-    search = query_params.get("search", query_params.get("q", "")).strip()
-    org_type = query_params.get("type", "").strip()
-    is_active = query_params.get("is_active", "").strip()
-    
-    # Build WHERE clause dynamically
-    where_clauses = []
-    bind_params = []
-    
-    if search:
-        where_clauses.append("(o.name LIKE ? OR o.slug LIKE ? OR o.description LIKE ?)")
-        search_pattern = f"%{search}%"
-        bind_params.extend([search_pattern, search_pattern, search_pattern])
-    
-    if org_type and org_type in ["company", "nonprofit", "education"]:
-        where_clauses.append("o.type = ?")
-        bind_params.append(org_type)
-    
-    if is_active:
-        where_clauses.append("o.is_active = ?")
-        bind_params.append(1 if is_active.lower() in ["true", "1", "yes"] else 0)
-    
-    where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
-    
-    # Get organizations
-    query = f'''
-        SELECT o.id, o.name, o.slug, o.description, o.logo, o.url, 
-               o.type, o.is_active, o.team_points, o.created, o.tagline,
-               u.username as admin_username
-        FROM organization o
-        LEFT JOIN users u ON o.admin = u.id
-        WHERE {where_sql}
-        ORDER BY o.created DESC
-        LIMIT ? OFFSET ?
-    '''
-    
-    bind_params.extend([per_page, (page - 1) * per_page])
-    
-    result = await db.prepare(query).bind(*bind_params).all()
-    organizations = convert_d1_results(result.results if hasattr(result, 'results') else [])
-    
-    # Get total count
-    count_query = f'''
-        SELECT COUNT(*) as total FROM organization o WHERE {where_sql}
-    '''
-    count_result = await db.prepare(count_query).bind(*bind_params[:-2]).first()
-    count_data = count_result.to_py() if hasattr(count_result, 'to_py') else dict(count_result) if count_result else {}
-    total = count_data.get("total", 0)
-    
-    return paginated_response(organizations, page=page, per_page=per_page, total=total)
+        if filter_kwargs:
+            qs = qs.filter(**{f"organization.{k}": v for k, v in filter_kwargs.items()})
+
+        organizations = await qs.paginate(page, per_page).all()
+
+        # Count query uses same filters without JOIN for consistency
+        count_qs = Organization.objects(db)
+        if search:
+            count_qs = count_qs.filter_or(
+                name__icontains=search,
+                slug__icontains=search,
+                description__icontains=search,
+            )
+        if filter_kwargs:
+            count_qs = count_qs.filter(**filter_kwargs)
+        total = await count_qs.count()
+
+        return paginated_response(organizations, page=page, per_page=per_page, total=total)
+    except Exception as e:
+        print(f"Error failed to fetch organizations: {e}")
+        return error_response("Failed to fetch organizations. Please try again later.", status=500)
