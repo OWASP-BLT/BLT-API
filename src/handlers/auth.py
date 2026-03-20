@@ -159,9 +159,11 @@ async def handle_signin(request: Any, env: Any, path_params: Dict[str, str], que
         method = str(request.method).upper()
         if method != "POST":
             return error_response("Method Not Allowed", 405, headers={"Allow": "POST"})
+
         jwt_secret = env.JWT_SECRET
         if not jwt_secret:
             return error_response("JWT secret not configured, please configure it using `wrangler secret put JWT_SECRET`", 500)
+
         body = await parse_json_body(request)
         if not body:
             return error_response("Invalid JSON body", 400) 
@@ -232,8 +234,10 @@ async def handle_verify_email(request: Any, env: Any, path_params: Dict[str, str
         method = str(request.method).upper()
         if method != "GET":
             return error_response("Method Not Allowed", 405, headers={"Allow": "GET"})
-        db= await  get_db_safe(env)
+
+        db = await get_db_safe(env)
         jwt_secret = env.JWT_SECRET
+
         if not jwt_secret:
             return error_response("JWT secret not configured, please configure it using `wrangler secret put JWT_SECRET`", 500)
         
