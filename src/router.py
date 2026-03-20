@@ -156,9 +156,13 @@ class Router:
         method = str(request.method).upper()
         path = self._parse_url(url)
         query_params = self._parse_query_params(url)
+        allowed_methods = set()
         
         # Try to match against registered routes
         for route in self.routes:
+            if route.regex.match(path):
+                allowed_methods.add(route.method)
+
             path_params = route.match(method, path)
             if path_params is not None:
                 try:
@@ -171,9 +175,18 @@ class Router:
                     )
                 except Exception as e:
                     return error_response(
-                        message=f"Handler error: {str(e)}",
+                        message=f"Handler error: {e!s}",
                         status=500
                     )
+
+        # Path exists but method does not
+        if allowed_methods:
+            allow_header = ", ".join(sorted(allowed_methods))
+            return error_response(
+                message="Method Not Allowed",
+                status=405,
+                headers={"Allow": allow_header}
+            )
         
         # No route matched
         return error_response(

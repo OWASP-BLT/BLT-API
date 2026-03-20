@@ -2,8 +2,14 @@
 Tests for the Router module.
 """
 
+import json
 import pytest
-from src.router import Route, Router
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+
+from router import Route, Router
 
 
 class TestRoute:
@@ -183,6 +189,53 @@ class TestRouterDecorators:
         
         assert len(router.routes) == 1
         assert router.routes[0].method == "DELETE"
+
+
+class _MockRequest:
+    """Simple mock request for Router.handle tests."""
+
+    def __init__(self, method: str, url: str):
+        self.method = method
+        self.url = url
+
+
+class TestRouterHandleMethodBehavior:
+    """Tests for Router.handle status behavior around method/path matching."""
+
+    @pytest.mark.asyncio
+    async def test_handle_returns_405_with_allow_header_when_path_exists(self):
+        router = Router()
+
+        async def get_handler(request, env, path_params, query_params, path):
+            return {"ok": True}
+
+        router.add_route("GET", "/bugs", get_handler)
+
+        request = _MockRequest("POST", "https://example.com/bugs")
+        response = await router.handle(request, env={})
+
+        assert getattr(response, "status", None) == 405
+        assert response.headers.get("Allow") == "GET"
+
+        body = json.loads(response.body)
+        assert body["status"] == 405
+        assert body["message"] == "Method Not Allowed"
+
+    @pytest.mark.asyncio
+    async def test_handle_returns_404_when_path_not_found(self):
+        router = Router()
+
+        async def get_handler(request, env, path_params, query_params, path):
+            return {"ok": True}
+
+        router.add_route("GET", "/bugs", get_handler)
+
+        request = _MockRequest("GET", "https://example.com/unknown")
+        response = await router.handle(request, env={})
+
+        assert getattr(response, "status", None) == 404
+        body = json.loads(response.body)
+        assert body["status"] == 404
 
 
 class TestRouteRegistrationOrder:
