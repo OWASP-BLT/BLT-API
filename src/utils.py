@@ -99,8 +99,8 @@ def error_response(
         message: Error message
         status: HTTP status code
         details: Additional error details
-        headers: Additional headers to include
-
+        headers: Additional HTTP headers to include (e.g., {"Allow": "POST"} for 405 responses)
+    
     Returns:
         Response object with error information
     """
@@ -112,7 +112,7 @@ def error_response(
 
     if details:
         error_data["details"] = details
-
+    
     return json_response(error_data, status=status, headers=headers)
 
 

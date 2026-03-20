@@ -163,7 +163,6 @@ async def handle_signin(request: Any, env: Any, path_params: Dict[str, str], que
         jwt_secret = env.JWT_SECRET
         if not jwt_secret:
             return error_response("JWT secret not configured, please configure it using `wrangler secret put JWT_SECRET`", 500)
-
         body = await parse_json_body(request)
         if not body:
             return error_response("Invalid JSON body", 400) 
