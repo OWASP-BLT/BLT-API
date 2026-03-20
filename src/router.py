@@ -6,9 +6,13 @@ path parameters and different HTTP methods.
 """
 
 import re
+import logging
 from urllib.parse import parse_qs, urlparse
 from typing import Callable, Dict, List, Optional, Tuple, Any
 from utils import error_response, json_response
+
+
+logger = logging.getLogger(__name__)
 
 
 class Route:
@@ -178,9 +182,13 @@ class Router:
                     query_params=query_params,
                     path=path
                 )
-            except Exception as e:
+            except Exception:
+                logger.exception(
+                    "Unhandled route handler exception",
+                    extra={"method": method, "path": path}
+                )
                 return error_response(
-                    message=f"Handler error: {e!s}",
+                    message="Internal Server Error",
                     status=500
                 )
 
