@@ -160,24 +160,29 @@ class Router:
         
         # Try to match against registered routes
         for route in self.routes:
-            if route.regex.match(path):
-                allowed_methods.add(route.method)
+            match = route.regex.match(path)
+            if not match:
+                continue
 
-            path_params = route.match(method, path)
-            if path_params is not None:
-                try:
-                    return await route.handler(
-                        request=request,
-                        env=env,
-                        path_params=path_params,
-                        query_params=query_params,
-                        path=path
-                    )
-                except Exception as e:
-                    return error_response(
-                        message=f"Handler error: {e!s}",
-                        status=500
-                    )
+            allowed_methods.add(route.method)
+
+            if route.method != method:
+                continue
+
+            path_params = match.groupdict()
+            try:
+                return await route.handler(
+                    request=request,
+                    env=env,
+                    path_params=path_params,
+                    query_params=query_params,
+                    path=path
+                )
+            except Exception as e:
+                return error_response(
+                    message=f"Handler error: {e!s}",
+                    status=500
+                )
 
         # Path exists but method does not
         if allowed_methods:

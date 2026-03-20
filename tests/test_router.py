@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from router import Route, Router
+from router import Route, Router  # pyright: ignore[reportMissingImports]
 
 
 class TestRoute:
@@ -236,6 +236,27 @@ class TestRouterHandleMethodBehavior:
         assert getattr(response, "status", None) == 404
         body = json.loads(response.body)
         assert body["status"] == 404
+
+    @pytest.mark.asyncio
+    async def test_handle_returns_405_with_aggregated_sorted_allow_header(self):
+        router = Router()
+
+        async def generic_handler(request, env, path_params, query_params, path):
+            return {"ok": True}
+
+        router.add_route("GET", "/bugs", generic_handler)
+        router.add_route("HEAD", "/bugs", generic_handler)
+        router.add_route("POST", "/bugs", generic_handler)
+
+        request = _MockRequest("PUT", "https://example.com/bugs")
+        response = await router.handle(request, env={})
+
+        assert getattr(response, "status", None) == 405
+        assert response.headers.get("Allow") == "GET, HEAD, POST"
+
+        body = json.loads(response.body)
+        assert body["status"] == 405
+        assert body["message"] == "Method Not Allowed"
 
 
 class TestRouteRegistrationOrder:
