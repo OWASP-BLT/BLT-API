@@ -68,7 +68,7 @@ async def handle_projects(
             result = await client.get_project(int(project_id))
         except Exception as e:
             logger.error("Request failed in projects: %s", str(e))
-        return error_response("Internal Server Error", status=500)
+            return error_response("Internal Server Error", status=500)
         
         if result.get("error"):
             return error_response(

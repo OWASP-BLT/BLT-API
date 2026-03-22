@@ -44,7 +44,7 @@ async def handle_contributors(
             result = await client.get_contributors()
         except Exception as e:
             logger.error("Request failed in contributors: %s", str(e))
-        return error_response("Internal Server Error", status=500)
+            return error_response("Internal Server Error", status=500)
         
         if result.get("error"):
             return error_response(
