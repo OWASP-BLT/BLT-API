@@ -31,7 +31,8 @@ from handlers import (
     handle_homepage,
     handle_signup,
     handle_signin,
-    handle_verify_email
+    handle_verify_email,
+    handle_postman_collection,
 )
 from utils import json_response, error_response, cors_headers
 from libs.db import get_db_safe 
@@ -65,6 +66,10 @@ router.add_route("GET", "/users/{id}/following", handle_users)
 router.add_route("POST", "/auth/signup", handle_signup)
 router.add_route("POST", "/auth/signin", handle_signin)
 router.add_route("GET", "/auth/verify-email", handle_verify_email)  # Email verification route
+
+# Tooling API
+router.add_route("GET", "/postman-collection", handle_postman_collection)
+router.add_route("GET", "/postman-collection.json", handle_postman_collection)
 
 # Domains API
 router.add_route("GET", "/domains", handle_domains)
