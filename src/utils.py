@@ -94,7 +94,7 @@ def error_response(
 ) -> Response:
     """
     Create an error JSON response.
-    
+
     Args:
         message: Error message
         status: HTTP status code
@@ -109,7 +109,7 @@ def error_response(
         "message": message,
         "status": status
     }
-    
+
     if details:
         error_data["details"] = details
     
