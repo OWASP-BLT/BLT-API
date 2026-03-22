@@ -2,10 +2,13 @@
 Repositories handler for the BLT API.
 """
 
+import logging
 from typing import Any, Dict
 from utils import json_response, error_response, paginated_response, parse_pagination_params
 from client import create_client
 
+
+logger = logging.getLogger(__name__)
 
 async def handle_repos(
     request: Any,
@@ -21,8 +24,12 @@ async def handle_repos(
         GET /repos - List repositories with pagination
         GET /repos/{id} - Get a specific repository
     """
-    client = create_client(env)
-    
+    try:
+        client = create_client(env)
+    except Exception as e:
+        logger.error("Failed to initialize client in repos: %s", str(e))
+        return error_response("Service Unavailable", status=503)
+
     # Get specific repository
     if "id" in path_params:
         repo_id = path_params["id"]
@@ -49,7 +56,11 @@ async def handle_repos(
     
     if org_id and org_id.isdigit():
         # Get repos for specific organization
-        result = await client.get_organization_repos(int(org_id))
+        try:
+            result = await client.get_organization_repos(int(org_id))
+        except Exception as e:
+            logger.error("Request failed in repos: %s", str(e))
+            return error_response("Internal Server Error", status=500)
         
         if result.get("error"):
             return error_response(
