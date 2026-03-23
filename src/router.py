@@ -6,9 +6,13 @@ path parameters and different HTTP methods.
 """
 
 import re
+import logging
 from urllib.parse import parse_qs, urlparse
 from typing import Callable, Dict, List, Optional, Tuple, Any
 from utils import error_response, json_response
+
+
+logger = logging.getLogger(__name__)
 
 
 class Route:
@@ -170,24 +174,46 @@ class Router:
         method = str(request.method).upper()
         path = self._parse_url(url)
         query_params = self._parse_query_params(url)
+        allowed_methods = set()
         
         # Try to match against registered routes
         for route in self.routes:
-            path_params = route.match(method, path)
-            if path_params is not None:
-                try:
-                    return await route.handler(
-                        request=request,
-                        env=env,
-                        path_params=path_params,
-                        query_params=query_params,
-                        path=path
-                    )
-                except Exception as e:
-                    return error_response(
-                        message=f"Handler error: {str(e)}",
-                        status=500
-                    )
+            match = route.regex.match(path)
+            if not match:
+                continue
+
+            allowed_methods.add(route.method)
+
+            if route.method != method:
+                continue
+
+            path_params = match.groupdict()
+            try:
+                return await route.handler(
+                    request=request,
+                    env=env,
+                    path_params=path_params,
+                    query_params=query_params,
+                    path=path
+                )
+            except Exception:
+                logger.exception(
+                    "Unhandled route handler exception",
+                    extra={"method": method, "path": path}
+                )
+                return error_response(
+                    message="Internal Server Error",
+                    status=500
+                )
+
+        # Path exists but method does not
+        if allowed_methods:
+            allow_header = ", ".join(sorted(allowed_methods))
+            return error_response(
+                message="Method Not Allowed",
+                status=405,
+                headers={"Allow": allow_header}
+            )
         
         # No route matched
         return error_response(
