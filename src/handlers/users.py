@@ -644,7 +644,10 @@ async def follow_user(db: Any, request: Any, env: Any, target_user_id: str) -> A
     """Follow a user. Requires JWT authentication."""
     logger = logging.getLogger(__name__)
     try:
-        token = _get_header(request, "Authorization").replace("Bearer ", "")
+        auth_header = _get_header(request, "Authorization")
+        if not auth_header:
+            return error_response("Authentication required", status=401)
+        token = auth_header.replace("Bearer ", "")
         if not token:
             return error_response("Authentication required", status=401)
 
@@ -682,7 +685,10 @@ async def unfollow_user(db: Any, request: Any, env: Any, target_user_id: str) ->
     """Unfollow a user. Requires JWT authentication."""
     logger = logging.getLogger(__name__)
     try:
-        token = _get_header(request, "Authorization").replace("Bearer ", "")
+        auth_header = _get_header(request, "Authorization")
+        if not auth_header:
+            return error_response("Authentication required", status=401)
+        token = auth_header.replace("Bearer ", "")
         if not token:
             return error_response("Authentication required", status=401)
 
