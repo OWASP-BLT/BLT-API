@@ -35,7 +35,7 @@ from handlers import (
     make_routes_handler
 )
 from utils import json_response, error_response, cors_headers
-from libs.db import get_db_safe 
+from src.libs.db import get_db_safe 
 
 # Initialize the router
 router = Router()
