@@ -1,3 +1,7 @@
+# Cache flag: once verified in a worker isolate, the schema is static for its lifetime.
+_db_initialized = False
+
+
 def get_db(env):
     """Helper to get DB binding from env, handling different env types.
     
@@ -63,6 +67,10 @@ async def check_db_initialized(db):
 async def get_db_safe(env):
     """Get database and verify it's properly initialized.
     
+    The initialization check is performed only once per worker isolate
+    lifetime and cached via a module-level flag. Subsequent calls skip
+    the redundant sqlite_master query.
+
     Args:
         env: Environment bindings
     
@@ -72,14 +80,19 @@ async def get_db_safe(env):
     Raises:
         Exception: If database is not configured or not initialized
     """
+    global _db_initialized
+
     db = get_db(env)
-    
-    is_initialized, missing_tables = await check_db_initialized(db)
-    
-    if not is_initialized:
-        raise Exception(
-            f"Database is not initialized. Missing tables: {', '.join(missing_tables)}. "
-            "Please run migrations first."
-        )
-    
+
+    if not _db_initialized:
+        is_initialized, missing_tables = await check_db_initialized(db)
+
+        if not is_initialized:
+            raise Exception(
+                f"Database is not initialized. Missing tables: {', '.join(missing_tables)}. "
+                "Please run migrations first."
+            )
+
+        _db_initialized = True
+
     return db
