@@ -1,5 +1,8 @@
+import asyncio
+
 # Cache flag: once verified in a worker isolate, the schema is static for its lifetime.
 _db_initialized = False
+_db_init_lock = asyncio.Lock()
 
 
 def get_db(env):
@@ -85,14 +88,17 @@ async def get_db_safe(env):
     db = get_db(env)
 
     if not _db_initialized:
-        is_initialized, missing_tables = await check_db_initialized(db)
+        async with _db_init_lock:
+            # Double-check after acquiring lock to avoid redundant work
+            if not _db_initialized:
+                is_initialized, missing_tables = await check_db_initialized(db)
 
-        if not is_initialized:
-            raise Exception(
-                f"Database is not initialized. Missing tables: {', '.join(missing_tables)}. "
-                "Please run migrations first."
-            )
+                if not is_initialized:
+                    raise Exception(
+                        f"Database is not initialized. Missing tables: {', '.join(missing_tables)}. "
+                        "Please run migrations first."
+                    )
 
-        _db_initialized = True
+                _db_initialized = True
 
     return db
