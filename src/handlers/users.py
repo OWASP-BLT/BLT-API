@@ -11,6 +11,7 @@ from utils import error_response, parse_pagination_params, convert_d1_results, p
 from libs.db import get_db_safe
 from libs.constant import __HASHING_ITERATIONS
 from libs.data_protection import encrypt_sensitive, decrypt_sensitive, blind_index
+from libs.jwt_utils import decode_jwt
 from workers import Response
 from models import User, Bug, Domain, UserFollow
 import logging
@@ -229,11 +230,16 @@ async def handle_users(
         GET /users/{id}/domains - Get domains submitted by user
         GET /users/{id}/followers - Get user's followers
         GET /users/{id}/following - Get users this user follows
+        POST /users/{id}/follow - Follow a user (auth required)
+        DELETE /users/{id}/follow - Unfollow a user (auth required)
     """
     method = str(request.method).upper()
     logger = logging.getLogger(__name__)
 
-    if method not in {"GET", "POST"}:
+    if method not in {"GET", "POST", "DELETE"}:
+        return error_response("Method Not Allowed", status=405, headers={"Allow": "GET, POST, DELETE"})
+    
+    if method == "DELETE" and "id" not in path_params:
         return error_response("Method Not Allowed", status=405, headers={"Allow": "GET, POST"})
     
     try: 
@@ -243,7 +249,15 @@ async def handle_users(
         return error_response("Service temporarily unavailable", status=503)
     
     try: 
-        if method == "POST" and "id" in path_params:
+        if method in ("POST", "DELETE") and "id" in path_params:
+            user_id = path_params["id"]
+            if not user_id.isdigit():
+                return error_response("Invalid user ID", status=400)
+            if path.endswith("/follow"):
+                if method == "POST":
+                    return await follow_user(db, request, env, user_id)
+                else:
+                    return await unfollow_user(db, request, env, user_id)
             return error_response("Method Not Allowed", status=405, headers={"Allow": "GET"})
 
         if method == "POST":
@@ -268,6 +282,8 @@ async def handle_users(
                 return await get_user_followers(db, env, user_id, query_params)
             elif path.endswith("/following"):
                 return await get_user_following(db, env, user_id, query_params)
+            elif path.endswith("/follow"):
+                return error_response("Method Not Allowed", status=405, headers={"Allow": "POST, DELETE"})
             else:
                 # Get basic user info
                 return await get_user(db, env, user_id)
@@ -627,3 +643,92 @@ async def get_user_following(db: Any, env: Any, user_id: str, query_params: Dict
     except Exception as e:
         logger.error(f"Error fetching user following: {str(e)}")
         return error_response(f"Error fetching user following: {str(e)}", status=500)
+
+
+async def follow_user(db: Any, request: Any, env: Any, target_user_id: str) -> Any:
+    """Follow a user. Requires JWT authentication."""
+    logger = logging.getLogger(__name__)
+    try:
+        auth_header = _get_header(request, "Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return error_response("Authentication required", status=401)
+        token = auth_header[7:]
+        if not token:
+            return error_response("Authentication required", status=401)
+
+        payload = decode_jwt(token, env.JWT_SECRET)
+        if not payload or not payload.get("user_id"):
+            return error_response("Invalid or expired token", status=401)
+
+        try:
+            follower_id = int(payload["user_id"])
+        except (ValueError, TypeError):
+            return error_response("Invalid or expired token", status=401)
+        following_id = int(target_user_id)
+
+        if follower_id == following_id:
+            return error_response("Cannot follow yourself", status=400)
+
+        target = await User.objects(db).get(id=following_id)
+        if not target:
+            return error_response("User not found", status=404)
+
+        existing = await UserFollow.objects(db).filter(
+            follower_id=follower_id, following_id=following_id
+        ).first()
+        if existing:
+            return error_response("Already following this user", status=409)
+
+        try:
+            await UserFollow.create(db, follower_id=follower_id, following_id=following_id)
+        except Exception as e:
+            if "UNIQUE constraint failed" in str(e):
+                return error_response("Already following this user", status=409)
+            if "FOREIGN KEY constraint failed" in str(e):
+                return error_response("User not found", status=404)
+            raise
+
+        return Response.json({"success": True, "message": "User followed"}, status=201)
+    except Exception as e:
+        logger.error(f"Error following user: {str(e)}")
+        return error_response("Internal server error", status=500)
+
+
+async def unfollow_user(db: Any, request: Any, env: Any, target_user_id: str) -> Any:
+    """Unfollow a user. Requires JWT authentication."""
+    logger = logging.getLogger(__name__)
+    try:
+        auth_header = _get_header(request, "Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return error_response("Authentication required", status=401)
+        token = auth_header[7:]
+        if not token:
+            return error_response("Authentication required", status=401)
+
+        payload = decode_jwt(token, env.JWT_SECRET)
+        if not payload or not payload.get("user_id"):
+            return error_response("Invalid or expired token", status=401)
+
+        try:
+            follower_id = int(payload["user_id"])
+        except (ValueError, TypeError):
+            return error_response("Invalid or expired token", status=401)
+        following_id = int(target_user_id)
+
+        if follower_id == following_id:
+            return error_response("Cannot unfollow yourself", status=400)
+
+        existing = await UserFollow.objects(db).filter(
+            follower_id=follower_id, following_id=following_id
+        ).first()
+        if not existing:
+            return error_response("Not following this user", status=404)
+
+        await UserFollow.objects(db).filter(
+            follower_id=follower_id, following_id=following_id
+        ).delete()
+
+        return Response.json({"success": True, "message": "User unfollowed"})
+    except Exception as e:
+        logger.error(f"Error unfollowing user: {str(e)}")
+        return error_response("Internal server error", status=500)

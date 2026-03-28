@@ -61,6 +61,8 @@ router.add_route("GET", "/users/{id}/bugs", handle_users)
 router.add_route("GET", "/users/{id}/domains", handle_users)
 router.add_route("GET", "/users/{id}/followers", handle_users)
 router.add_route("GET", "/users/{id}/following", handle_users)
+router.add_route("POST", "/users/{id}/follow", handle_users)
+router.add_route("DELETE", "/users/{id}/follow", handle_users)
 
 # Auth API
 router.add_route("POST", "/auth/signup", handle_signup)
@@ -136,6 +138,8 @@ _add_v2_route("GET", "/users/{id}/bugs", handle_users)
 _add_v2_route("GET", "/users/{id}/domains", handle_users)
 _add_v2_route("GET", "/users/{id}/followers", handle_users)
 _add_v2_route("GET", "/users/{id}/following", handle_users)
+_add_v2_route("POST", "/users/{id}/follow", handle_users)
+_add_v2_route("DELETE", "/users/{id}/follow", handle_users)
 
 _add_v2_route("POST", "/auth/signup", handle_signup)
 _add_v2_route("POST", "/auth/signin", handle_signin)
