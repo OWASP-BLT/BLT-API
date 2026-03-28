@@ -4,11 +4,12 @@ Repositories handler for the BLT API.
 
 import logging
 from typing import Any, Dict
-from utils import json_response, error_response, paginated_response, parse_pagination_params
+from utils import json_response, error_response, paginated_response, parse_pagination_params, client_call
 from client import create_client
 
 
 logger = logging.getLogger(__name__)
+
 
 async def handle_repos(
     request: Any,
@@ -19,7 +20,7 @@ async def handle_repos(
 ) -> Any:
     """
     Handle repository-related requests.
-    
+
     Endpoints:
         GET /repos - List repositories with pagination
         GET /repos/{id} - Get a specific repository
@@ -30,16 +31,12 @@ async def handle_repos(
         logger.error("Failed to initialize client in repos: %s", str(e))
         return error_response("Service Unavailable", status=503)
 
-    # Get specific repository
     if "id" in path_params:
         repo_id = path_params["id"]
-        
-        # Validate ID is numeric
+
         if not repo_id.isdigit():
             return error_response("Invalid repository ID", status=400)
-        
-        # Note: The BLT API might not have a direct repo endpoint
-        # We can try to get repos from organizations
+
         return json_response({
             "success": True,
             "message": "Repository details endpoint",
@@ -48,36 +45,24 @@ async def handle_repos(
                 "note": "Direct repository lookup may require organization context"
             }
         })
-    
-    # List repositories with pagination
-    # Note: Repos are typically accessed through organizations
+
     page, per_page = parse_pagination_params(query_params)
     org_id = query_params.get("organization")
-    
+
     if org_id and org_id.isdigit():
-        # Get repos for specific organization
-        try:
-            result = await client.get_organization_repos(int(org_id))
-        except Exception as e:
-            logger.error("Request failed in repos: %s", str(e))
-            return error_response("Internal Server Error", status=500)
-        
+        result, err = await client_call(client.get_organization_repos(int(org_id)), logger, "repos")
+        if err:
+            return err
         if result.get("error"):
-            return error_response(
-                result.get("message", "Failed to fetch repositories"),
-                status=result.get("status", 500)
-            )
-        
+            return error_response(result.get("message", "Failed to fetch repositories"), status=result.get("status", 500))
         data = result.get("data", [])
-        
         return json_response({
             "success": True,
             "organization_id": int(org_id),
             "data": data,
             "count": len(data) if isinstance(data, list) else 0
         })
-    
-    # Without organization filter, return info about the endpoint
+
     return json_response({
         "success": True,
         "message": "Repository listing",

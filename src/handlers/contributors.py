@@ -4,11 +4,12 @@ Contributors handler for the BLT API.
 
 import logging
 from typing import Any, Dict
-from utils import json_response, error_response, paginated_response, parse_pagination_params
+from utils import json_response, error_response, paginated_response, parse_pagination_params, client_call
 from client import create_client
 
 
 logger = logging.getLogger(__name__)
+
 
 async def handle_contributors(
     request: Any,
@@ -19,7 +20,7 @@ async def handle_contributors(
 ) -> Any:
     """
     Handle contributor-related requests.
-    
+
     Endpoints:
         GET /contributors - List contributors with pagination
         GET /contributors/{id} - Get a specific contributor
@@ -33,56 +34,43 @@ async def handle_contributors(
     # Get specific contributor
     if "id" in path_params:
         contributor_id = path_params["id"]
-        
-        # Validate ID is numeric
+
         if not contributor_id.isdigit():
             return error_response("Invalid contributor ID", status=400)
-        
-        # Note: This might need a specific endpoint in BLT backend
-        # For now, we'll try to get from the contributors list
-        try:
-            result = await client.get_contributors()
-        except Exception as e:
-            logger.error("Request failed in contributors: %s", str(e))
-            return error_response("Internal Server Error", status=500)
-        
+
+        result, err = await client_call(client.get_contributors(), logger, "contributors")
+        if err:
+            return err
+
         if result.get("error"):
             return error_response(
                 result.get("message", "Contributor not found"),
                 status=result.get("status", 404)
             )
-        
+
         data = result.get("data", [])
-        
-        # Try to find the specific contributor
+
         if isinstance(data, list):
             for contributor in data:
                 if str(contributor.get("id")) == contributor_id or str(contributor.get("github_id")) == contributor_id:
-                    return json_response({
-                        "success": True,
-                        "data": contributor
-                    })
-        
+                    return json_response({"success": True, "data": contributor})
+
         return error_response("Contributor not found", status=404)
-    
-    # List contributors with pagination
+
     page, per_page = parse_pagination_params(query_params)
-    
-    try:
-        result = await client.get_contributors(page=page, per_page=per_page)
-    except Exception as e:
-        logger.error("Request failed in contributors: %s", str(e))
-        return error_response("Internal Server Error", status=500)
-    
+
+    result, err = await client_call(client.get_contributors(page=page, per_page=per_page), logger, "contributors")
+    if err:
+        return err
+
     if result.get("error"):
         return error_response(
             result.get("message", "Failed to fetch contributors"),
             status=result.get("status", 500)
         )
-    
+
     data = result.get("data", {})
-    
-    # Handle paginated response
+
     if isinstance(data, dict) and "results" in data:
         return json_response({
             "success": True,
@@ -96,11 +84,8 @@ async def handle_contributors(
                 "previous": data.get("previous")
             }
         })
-    
+
     if isinstance(data, list):
         return paginated_response(data, page=page, per_page=per_page)
-    
-    return json_response({
-        "success": True,
-        "data": data
-    })
+
+    return json_response({"success": True, "data": data})
