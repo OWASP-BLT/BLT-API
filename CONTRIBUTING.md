@@ -208,39 +208,40 @@ python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 
 ### Database Code Patterns
 
-See [docs/DATABASE.md](docs/DATABASE.md) for detailed examples of querying, pagination, and data conversion.
-
-### Database Helpers
-
-`src/libs/db.py` provides database utilities:
+**All database queries must use the ORM** (`src/libs/orm.py`).  Raw `db.prepare()` calls must **not** be written in handlers or services — use the model classes in `src/models.py` instead.  The ORM validates field names and parameterizes all values automatically, preventing SQL injection.
 
 ```python
 from libs.db import get_db_safe
+from models import Domain, Bug, Tag
 
 async def my_handler(request, env, ...):
-    db = await get_db_safe(env)  # Validates DB is initialized
-    result = await db.prepare("SELECT * FROM domains").all()
-    data = convert_d1_results(result.results)
+    db = await get_db_safe(env)
+
+    # List active domains, newest first
+    domains = await Domain.objects(db).filter(is_active=1).order_by('-created').all()
+
+    # Paginated query
+    bugs = await Bug.objects(db).filter(status='open').paginate(page=1, per_page=20).all()
+
+    # Get single row
+    domain = await Domain.objects(db).get(id=1)
+
+    # Count matching rows
+    total = await Bug.objects(db).filter(domain=1).count()
+
+    # Create a new record
+    tag = await Tag.create(db, name='xss')
+
+    # Update matching rows
+    await Domain.objects(db).filter(id=1).update(is_active=0)
+
+    # Delete matching rows
+    await Bug.objects(db).filter(status='closed').delete()
 ```
 
-### D1 Result Conversion
+See `src/libs/orm.py` for the full `QuerySet` API (including `join`, `exclude`, `values`, `exists`, and more) and `src/models.py` for all available model classes.
 
-D1 returns JavaScript proxy objects. Convert them to Python:
-
-```python
-from handlers.domains import convert_d1_results
-
-result = await db.prepare("SELECT * FROM table").all()
-data = convert_d1_results(result.results)  # List of dicts
-```
-
-Or for single row:
-
-```python
-result = await db.prepare("SELECT * FROM table WHERE id = ?").bind(1).first()
-if result:
-    data = result.to_py() if hasattr(result, 'to_py') else result
-```
+See [docs/DATABASE.md](docs/DATABASE.md) for detailed examples of querying, pagination, and data conversion.
 
 ### Response Handling
 
@@ -452,10 +453,10 @@ wrangler dev --port 8787
 
 ## Code Standards
 
+- **Use the ORM (`libs/orm.py`) for all database queries** — never write raw SQL strings with `db.prepare()` in handlers or services
 - Use async/await for database operations
 - Validate input parameters with `check_required_fields()` utility
 - Handle errors with appropriate HTTP status codes using `error_response()`
-- Convert D1 results to Python types using `convert_d1_results()` or `.to_py()`
 - Use parameterized queries (never string interpolation) with `.bind()`
 - Add pagination to list endpoints with consistent parameters (`page`, `per_page`)
 - Use `[[placeholder]]` syntax in HTML templates (not `{{placeholder}}`)

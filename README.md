@@ -498,6 +498,36 @@ wrangler d1 migrations create blt-api <description>
 wrangler d1 migrations apply blt-api --remote
 ```
 
+### ORM
+
+**All database queries must use the built-in ORM** (`src/libs/orm.py`). Do not write raw SQL strings with `db.prepare()` directly in handlers or services — use the model classes from `src/models.py` instead.
+
+The ORM provides a Django-inspired, chainable `QuerySet` API.  All field names are validated and all values are automatically parameterized, preventing SQL injection.
+
+```python
+from models import Domain, Bug, Tag
+
+# List active domains, newest first (page 2)
+domains = await Domain.objects(db).filter(is_active=1).order_by('-created').paginate(2, 20).all()
+
+# Get a single bug by primary key
+bug = await Bug.objects(db).get(id=42)
+
+# Count open bugs for a domain
+total = await Bug.objects(db).filter(domain=5, status='open').count()
+
+# Create a new tag
+tag = await Tag.create(db, name='xss')
+
+# Update a domain field
+await Domain.objects(db).filter(id=1).update(is_active=0)
+
+# Delete matching rows
+await Bug.objects(db).filter(status='closed').delete()
+```
+
+See `src/libs/orm.py` for the full `QuerySet` API (including `join`, `exclude`, `values`, `exists`, and more) and `src/models.py` for all available model classes.
+
 For complete database guide including queries, schema, and patterns, see [docs/DATABASE.md](docs/DATABASE.md).
 
 ## Development
@@ -512,9 +542,11 @@ BLT-API/
 │   ├── router.py           # URL routing
 │   ├── utils.py            # Utility functions
 │   ├── client.py           # BLT backend HTTP client
+│   ├── models.py           # ORM model definitions (Domain, Bug, User, …)
 │   ├── libs/               # Library modules
 │   │   ├── __init__.py
 │   │   ├── db.py           # Database helpers
+│   │   ├── orm.py          # Django-inspired ORM (QuerySet / Model base)
 │   │   ├── constant.py     # Constants and config
 │   │   └── jwt_utils.py    # JWT authentication utilities
 │   ├── handlers/           # Request handlers
