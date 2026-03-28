@@ -38,7 +38,9 @@ async def handle_contributors(
         if not contributor_id.isdigit():
             return error_response("Invalid contributor ID", status=400)
 
-        result, err = await client_call(client.get_contributors(), logger, "contributors")
+        # NOTE: No dedicated get-by-ID endpoint; fetch with large per_page to reduce false 404s.
+        # Contributors beyond this limit will not be found. Track improvement in a future issue.
+        result, err = await client_call(client.get_contributors(per_page=200), logger, "contributors")
         if err:
             return err
 

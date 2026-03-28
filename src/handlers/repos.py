@@ -50,7 +50,7 @@ async def handle_repos(
     org_id = query_params.get("organization")
 
     if org_id and org_id.isdigit():
-        result, err = await client_call(client.get_organization_repos(int(org_id)), logger, "repos")
+        result, err = await client_call(client.get_organization_repos(int(org_id), page=page, per_page=per_page), logger, "repos")
         if err:
             return err
         if result.get("error"):
