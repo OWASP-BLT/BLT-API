@@ -151,7 +151,7 @@ class TestOrganizationInputValidation:
                 query_params={"is_active": "true"},
                 path="/organizations"
             )
-        assert response.status_code != 400
+        assert response.status_code == 200
 
     @pytest.mark.asyncio
     async def test_valid_org_type_accepted(self):
@@ -165,7 +165,7 @@ class TestOrganizationInputValidation:
                 query_params={"type": "company"},
                 path="/organizations"
             )
-        assert response.status_code != 400
+        assert response.status_code == 200
 
 
 # ---------------------------------------------------------------------------
