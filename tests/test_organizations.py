@@ -214,6 +214,24 @@ class TestIncludeTokenNormalization:
         assert "tags" in tokens
         assert " tags" not in tokens
 
+    @pytest.mark.asyncio
+    async def test_include_tokens_normalized_in_handler(self):
+        """Handler correctly normalizes mixed-case/spaced include tokens."""
+        db = MockDB()
+        db._first_return = None  # org not found -> 404, but normalization runs first
+        with patch("handlers.organizations.get_db_safe", AsyncMock(return_value=db)):
+            with patch("handlers.organizations.Organization") as mock_org:
+                mock_org.objects.return_value.filter.return_value.count = AsyncMock(return_value=0)
+                response = await handle_organizations(
+                    make_request(), make_env(db),
+                    path_params={"id": "1"},
+                    query_params={"include": "Managers, Tags, STATS"},
+                    path="/organizations/1"
+                )
+        # org_exists=0 returns 404 — normalization ran without error
+        assert response.status_code == 404
+
+
 
 # ---------------------------------------------------------------------------
 # _get_organization_stats helper

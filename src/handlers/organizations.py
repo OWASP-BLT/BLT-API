@@ -68,10 +68,7 @@ async def handle_organizations(
         org_id_int = int(org_id)
 
         # Verify org exists before dispatching to sub-resource routes
-        try:
-            org_exists = await Organization.objects(db).filter(id=org_id_int).count()
-        except Exception:
-            org_exists = 0
+        org_exists = await Organization.objects(db).filter(id=org_id_int).count()
         if not org_exists:
             return error_response("Organization not found", status=404)
 
