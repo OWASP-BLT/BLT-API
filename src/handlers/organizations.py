@@ -55,7 +55,7 @@ async def handle_organizations(
         db = await get_db_safe(env)
     except Exception as e:
         print(f"Database connection error: {e}")
-        return error_response("Service temporarily unavailable. Please try again later.", status=503)
+        return error_response("Service unavailable", status=503)
 
     # Get specific organization
     if "id" in path_params:
@@ -66,6 +66,14 @@ async def handle_organizations(
             return error_response("Invalid organization ID", status=400)
 
         org_id_int = int(org_id)
+
+        # Verify org exists before dispatching to sub-resource routes
+        try:
+            org_exists = await Organization.objects(db).filter(id=org_id_int).count()
+        except Exception:
+            org_exists = 0
+        if not org_exists:
+            return error_response("Organization not found", status=404)
 
         # GET /organizations/{id}/domains
         if path.endswith("/domains"):
@@ -118,7 +126,7 @@ async def handle_organizations(
                     .filter(**{"organization_managers.organization_id": org_id_int})\
                     .order_by('-organization_managers.created')\
                     .paginate(page, per_page)\
-                    .values('users.id', 'users.username', 'users.email',
+                    .values('users.id', 'users.username',
                             'users.user_avatar', 'users.total_score',
                             'organization_managers.created AS joined_as_manager')\
                     .all()
@@ -160,7 +168,7 @@ async def handle_organizations(
                     .filter(organization_id=org_id_int)\
                     .order_by('integration_type')\
                     .values('id', 'integration_type', 'integration_name',
-                            'webhook_url', 'is_active', 'created', 'modified')\
+                            'is_active', 'created', 'modified')\
                     .all()
                 return Response.json({
                     "success": True,
@@ -189,7 +197,7 @@ async def handle_organizations(
                         'organization.description', 'organization.logo', 'organization.url',
                         'organization.type', 'organization.is_active', 'organization.team_points',
                         'organization.created', 'organization.tagline',
-                        'users.username', 'users.email')\
+                        'users.username')\
                 .first()
 
             if not org:

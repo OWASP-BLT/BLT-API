@@ -7,7 +7,6 @@ database or HTTP server required.
 
 import pytest
 import sys
-import json
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -78,11 +77,6 @@ def make_request():
     return req
 
 
-def make_response_json(data):
-    """Simulate Response.json() returning a dict."""
-    resp = MagicMock()
-    resp._data = data
-    return resp
 
 
 # ---------------------------------------------------------------------------
