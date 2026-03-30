@@ -199,8 +199,7 @@ class Default(WorkerEntrypoint):
             if request.method == "OPTIONS":
                 return Response.new(
                     None,
-                    status=204,
-                    headers=Headers.new(cors_headers())
+                    {'status': 204, 'headers': Headers.new(list(cors_headers().items()))}
                 )
 
             await get_db_safe(self.env)  # Ensure database is available and initialized

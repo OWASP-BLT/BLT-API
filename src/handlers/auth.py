@@ -369,7 +369,11 @@ async def handle_signin(request: Any, env: Any, path_params: Dict[str, str], que
         )
 
         # Decrypt username for the response
-        decrypted_username = decrypt_sensitive(user["username_encrypted"], env) if user.get("username_encrypted") else username
+        try:
+            decrypted_username = decrypt_sensitive(user["username_encrypted"], env) if user.get("username_encrypted") else username
+        except Exception as e:
+            logger.error(f"Failed to decrypt username in signin response: {str(e)}")
+            decrypted_username = "[decryption_failed]"
 
         res = {
             "message": "Login successful",

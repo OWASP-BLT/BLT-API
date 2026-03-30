@@ -8,6 +8,45 @@ from utils import convert_d1_results, error_response, paginated_response, parse_
 from libs.db import get_db_safe
 from libs.data_protection import decrypt_sensitive
 
+async def _get_org_stats(db: Any, org_id_int: int) -> dict:
+    """Helper to fetch stats and reuse them across different endpoints."""
+    # Get domain count
+    domain_count_result = await db.prepare('''
+        SELECT COUNT(*) as count FROM domains WHERE organization = ?
+    ''').bind(org_id_int).first()
+    domain_count_data = domain_count_result.to_py() if hasattr(domain_count_result, 'to_py') else dict(domain_count_result) if domain_count_result else {}
+    
+    # Get bug count
+    bug_count_result = await db.prepare('''
+        SELECT COUNT(*) as count 
+        FROM bugs b
+        JOIN domains d ON b.domain = d.id
+        WHERE d.organization = ?
+    ''').bind(org_id_int).first()
+    bug_count_data = bug_count_result.to_py() if hasattr(bug_count_result, 'to_py') else dict(bug_count_result) if bug_count_result else {}
+    
+    # Get verified bug count
+    verified_bug_result = await db.prepare('''
+        SELECT COUNT(*) as count 
+        FROM bugs b
+        JOIN domains d ON b.domain = d.id
+        WHERE d.organization = ? AND b.verified = 1
+    ''').bind(org_id_int).first()
+    verified_bug_data = verified_bug_result.to_py() if hasattr(verified_bug_result, 'to_py') else dict(verified_bug_result) if verified_bug_result else {}
+    
+    # Get manager count
+    manager_count_result = await db.prepare('''
+        SELECT COUNT(*) as count FROM organization_managers WHERE organization_id = ?
+    ''').bind(org_id_int).first()
+    manager_count_data = manager_count_result.to_py() if hasattr(manager_count_result, 'to_py') else dict(manager_count_result) if manager_count_result else {}
+    
+    return {
+        "domain_count": domain_count_data.get("count", 0),
+        "bug_count": bug_count_data.get("count", 0),
+        "verified_bug_count": verified_bug_data.get("count", 0),
+        "manager_count": manager_count_data.get("count", 0)
+    }
+
 async def handle_organizations(
     request: Any,
     env: Any,
@@ -204,42 +243,7 @@ async def handle_organizations(
         # Get organization statistics
         if path.endswith("/stats"):
             try:
-                # Get domain count
-                domain_count_result = await db.prepare('''
-                    SELECT COUNT(*) as count FROM domains WHERE organization = ?
-                ''').bind(org_id_int).first()
-                domain_count_data = domain_count_result.to_py() if hasattr(domain_count_result, 'to_py') else dict(domain_count_result) if domain_count_result else {}
-                
-                # Get bug count
-                bug_count_result = await db.prepare('''
-                    SELECT COUNT(*) as count 
-                    FROM bugs b
-                    JOIN domains d ON b.domain = d.id
-                    WHERE d.organization = ?
-                ''').bind(org_id_int).first()
-                bug_count_data = bug_count_result.to_py() if hasattr(bug_count_result, 'to_py') else dict(bug_count_result) if bug_count_result else {}
-                
-                # Get verified bug count
-                verified_bug_result = await db.prepare('''
-                    SELECT COUNT(*) as count 
-                    FROM bugs b
-                    JOIN domains d ON b.domain = d.id
-                    WHERE d.organization = ? AND b.verified = 1
-                ''').bind(org_id_int).first()
-                verified_bug_data = verified_bug_result.to_py() if hasattr(verified_bug_result, 'to_py') else dict(verified_bug_result) if verified_bug_result else {}
-                
-                # Get manager count
-                manager_count_result = await db.prepare('''
-                    SELECT COUNT(*) as count FROM organization_managers WHERE organization_id = ?
-                ''').bind(org_id_int).first()
-                manager_count_data = manager_count_result.to_py() if hasattr(manager_count_result, 'to_py') else dict(manager_count_result) if manager_count_result else {}
-                
-                stats = {
-                    "domain_count": domain_count_data.get("count", 0),
-                    "bug_count": bug_count_data.get("count", 0),
-                    "verified_bug_count": verified_bug_data.get("count", 0),
-                    "manager_count": manager_count_data.get("count", 0)
-                }
+                stats = await _get_org_stats(db, org_id_int)
                 
                 return json_response({
                     "success": True,
@@ -320,11 +324,9 @@ async def handle_organizations(
                 org["tags"] = convert_d1_results(tags_result.results if hasattr(tags_result, 'results') else [])
             
             if "stats" in include_related:
-                domain_count_result = await db.prepare('''
-                    SELECT COUNT(*) as count FROM domains WHERE organization = ?
-                ''').bind(org_id_int).first()
-                domain_count_data = domain_count_result.to_py() if hasattr(domain_count_result, 'to_py') else dict(domain_count_result) if domain_count_result else {}
-                org["domain_count"] = domain_count_data.get("count", 0)
+                org_stats = await _get_org_stats(db, org_id_int)
+                for k, v in org_stats.items():
+                    org[k] = v
             
             return json_response({
                 "success": True,

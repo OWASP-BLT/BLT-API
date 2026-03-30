@@ -62,7 +62,7 @@ INSERT INTO users (username, password, title, user_avatar_encrypted, description
         450,
         1,
         NULL,
-        'hash1'
+        NULL
     ),
     (
         'bob_security',
@@ -74,7 +74,7 @@ INSERT INTO users (username, password, title, user_avatar_encrypted, description
         320,
         1,
         NULL,
-        'hash2'
+        NULL
     ),
     (
         'charlie_dev',
@@ -86,7 +86,7 @@ INSERT INTO users (username, password, title, user_avatar_encrypted, description
         180,
         1,
         NULL,
-        'hash3'
+        NULL
     ),
     (
         'diana_admin',
@@ -98,7 +98,7 @@ INSERT INTO users (username, password, title, user_avatar_encrypted, description
         650,
         1,
         NULL,
-        'hash4'
+        NULL
     ),
     (
         'eve_newbie',
@@ -110,7 +110,7 @@ INSERT INTO users (username, password, title, user_avatar_encrypted, description
         25,
         1,
         NULL,
-        'hash5'
+        NULL
     );
 
 -- Insert test organizations
