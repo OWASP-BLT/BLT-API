@@ -290,13 +290,26 @@ async def handle_users(
 
         for user in users:
             if user.get("username_encrypted"):
-                user["username"] = decrypt_sensitive(user.pop("username_encrypted"), env)
+                try:
+                    user["username"] = decrypt_sensitive(user.pop("username_encrypted"), env)
+                except Exception as e:
+                    logger.error(f"Failed to decrypt username for user {user.get('id')}: {str(e)}")
+                    user["username"] = "[decryption_failed]"
+                    user.pop("username_encrypted", None)
             else:
                 user.pop("username_encrypted", None)
             if user.get("user_avatar_encrypted"):
-                user["user_avatar"] = decrypt_sensitive(user.get("user_avatar_encrypted"), env)
+                try:
+                    user["user_avatar"] = decrypt_sensitive(user.get("user_avatar_encrypted"), env)
+                except Exception as e:
+                    logger.warning(f"Failed to decrypt avatar for user {user.get('id')}: {str(e)}")
+                    user["user_avatar"] = None
             if user.get("description_encrypted"):
-                user["description"] = decrypt_sensitive(user.get("description_encrypted"), env)
+                try:
+                    user["description"] = decrypt_sensitive(user.get("description_encrypted"), env)
+                except Exception as e:
+                    logger.warning(f"Failed to decrypt description for user {user.get('id')}: {str(e)}")
+                    user["description"] = None
             user.pop("user_avatar_encrypted", None)
             user.pop("description_encrypted", None)
 
@@ -343,13 +356,26 @@ async def get_user(db: Any, env: Any, user_id: str) -> Any:
         user.pop('username_hash', None)
 
         if user.get('username_encrypted'):
-            user['username'] = decrypt_sensitive(user.pop('username_encrypted'), env)
+            try:
+                user['username'] = decrypt_sensitive(user.pop('username_encrypted'), env)
+            except Exception as e:
+                logger.error(f"Failed to decrypt username for user {user.get('id')}: {str(e)}")
+                user['username'] = "[decryption_failed]"
+                user.pop('username_encrypted', None)
         else:
             user.pop('username_encrypted', None)
         if user.get('user_avatar_encrypted'):
-            user['user_avatar'] = decrypt_sensitive(user.get('user_avatar_encrypted'), env)
+            try:
+                user['user_avatar'] = decrypt_sensitive(user.get('user_avatar_encrypted'), env)
+            except Exception as e:
+                logger.warning(f"Failed to decrypt avatar for user {user.get('id')}: {str(e)}")
+                user['user_avatar'] = None
         if user.get('description_encrypted'):
-            user['description'] = decrypt_sensitive(user.get('description_encrypted'), env)
+            try:
+                user['description'] = decrypt_sensitive(user.get('description_encrypted'), env)
+            except Exception as e:
+                logger.warning(f"Failed to decrypt description for user {user.get('id')}: {str(e)}")
+                user['description'] = None
         user.pop('user_avatar_encrypted', None)
         user.pop('description_encrypted', None)
 
@@ -390,13 +416,26 @@ async def get_user_profile(db: Any, env: Any, user_id: str) -> Any:
         user.pop('username_hash', None)
 
         if user.get('username_encrypted'):
-            user['username'] = decrypt_sensitive(user.pop('username_encrypted'), env)
+            try:
+                user['username'] = decrypt_sensitive(user.pop('username_encrypted'), env)
+            except Exception as e:
+                logger.error(f"Failed to decrypt username for user {user.get('id')}: {str(e)}")
+                user['username'] = "[decryption_failed]"
+                user.pop('username_encrypted', None)
         else:
             user.pop('username_encrypted', None)
         if user.get('user_avatar_encrypted'):
-            user['user_avatar'] = decrypt_sensitive(user.get('user_avatar_encrypted'), env)
+            try:
+                user['user_avatar'] = decrypt_sensitive(user.get('user_avatar_encrypted'), env)
+            except Exception as e:
+                logger.warning(f"Failed to decrypt avatar for user {user.get('id')}: {str(e)}")
+                user['user_avatar'] = None
         if user.get('description_encrypted'):
-            user['description'] = decrypt_sensitive(user.get('description_encrypted'), env)
+            try:
+                user['description'] = decrypt_sensitive(user.get('description_encrypted'), env)
+            except Exception as e:
+                logger.warning(f"Failed to decrypt description for user {user.get('id')}: {str(e)}")
+                user['description'] = None
         user.pop('user_avatar_encrypted', None)
         user.pop('description_encrypted', None)
 
@@ -552,11 +591,20 @@ async def get_user_followers(db: Any, env: Any, user_id: str, query_params: Dict
         followers = convert_d1_results(result.results if hasattr(result, 'results') else [])
         for f in followers:
             if f.get("username_encrypted"):
-                f["username"] = decrypt_sensitive(f.pop("username_encrypted"), env)
+                try:
+                    f["username"] = decrypt_sensitive(f.pop("username_encrypted"), env)
+                except Exception as e:
+                    logger.error(f"Failed to decrypt username: {str(e)}")
+                    f["username"] = "[decryption_failed]"
+                    f.pop("username_encrypted", None)
             else:
                 f.pop("username_encrypted", None)
             if f.get("user_avatar_encrypted"):
-                f["user_avatar"] = decrypt_sensitive(f.pop("user_avatar_encrypted"), env)
+                try:
+                    f["user_avatar"] = decrypt_sensitive(f.pop("user_avatar_encrypted"), env)
+                except Exception as e:
+                    logger.warning(f"Failed to decrypt avatar: {str(e)}")
+                    f.pop("user_avatar_encrypted", None)
             else:
                 f.pop("user_avatar_encrypted", None)
 
@@ -609,11 +657,20 @@ async def get_user_following(db: Any, env: Any, user_id: str, query_params: Dict
         following = convert_d1_results(result.results if hasattr(result, 'results') else [])
         for f in following:
             if f.get("username_encrypted"):
-                f["username"] = decrypt_sensitive(f.pop("username_encrypted"), env)
+                try:
+                    f["username"] = decrypt_sensitive(f.pop("username_encrypted"), env)
+                except Exception as e:
+                    logger.error(f"Failed to decrypt username: {str(e)}")
+                    f["username"] = "[decryption_failed]"
+                    f.pop("username_encrypted", None)
             else:
                 f.pop("username_encrypted", None)
             if f.get("user_avatar_encrypted"):
-                f["user_avatar"] = decrypt_sensitive(f.pop("user_avatar_encrypted"), env)
+                try:
+                    f["user_avatar"] = decrypt_sensitive(f.pop("user_avatar_encrypted"), env)
+                except Exception as e:
+                    logger.warning(f"Failed to decrypt avatar: {str(e)}")
+                    f.pop("user_avatar_encrypted", None)
             else:
                 f.pop("user_avatar_encrypted", None)
 

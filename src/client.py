@@ -104,7 +104,8 @@ class BLTClient:
             
             # Parse response
             status = response.status
-            
+            response_text = None
+
             try:
                 response_text = await response.text()
                 if response_text:
@@ -112,7 +113,9 @@ class BLTClient:
                 else:
                     response_data = {}
             except json.JSONDecodeError:
-                response_data = {"raw_response": response_text}
+                response_data = {"raw_response": response_text if response_text else ""}
+            except Exception as e:
+                response_data = {"error": f"Failed to parse response: {str(e)}", "raw_response": response_text if response_text else ""}
             
             if status >= 400:
                 return {

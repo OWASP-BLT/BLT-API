@@ -131,8 +131,25 @@ async def handle_signup(
 
         # Validate redirect_uri against whitelist if provided
         if redirect_uri:
+            from urllib.parse import urlparse
             allowed_uris = [u.strip() for u in getattr(env, "ALLOWED_REDIRECT_URIS", "").split(",") if u.strip()]
-            if not any(redirect_uri.startswith(allowed) for allowed in allowed_uris):
+
+            # Parse the redirect_uri and compare scheme + netloc with allowed URIs
+            is_valid_redirect = False
+            try:
+                parsed_redirect = urlparse(redirect_uri)
+                redirect_base = f"{parsed_redirect.scheme}://{parsed_redirect.netloc}"
+
+                for allowed_uri in allowed_uris:
+                    parsed_allowed = urlparse(allowed_uri)
+                    allowed_base = f"{parsed_allowed.scheme}://{parsed_allowed.netloc}"
+                    if redirect_base == allowed_base:
+                        is_valid_redirect = True
+                        break
+            except Exception as e:
+                logger.warning(f"Failed to parse redirect_uri: {str(e)}")
+
+            if not is_valid_redirect:
                 return error_response("Invalid redirect_uri", 400)
 
         email_hash = blind_index(email, env, "users.email")
@@ -256,8 +273,25 @@ async def handle_signin(request: Any, env: Any, path_params: Dict[str, str], que
 
         redirect_uri = str(body.get("redirect_uri", "")).strip()
         if redirect_uri:
+            from urllib.parse import urlparse
             allowed_uris = [u.strip() for u in getattr(env, "ALLOWED_REDIRECT_URIS", "").split(",") if u.strip()]
-            if not any(redirect_uri.startswith(allowed) for allowed in allowed_uris):
+
+            # Parse the redirect_uri and compare scheme + netloc with allowed URIs
+            is_valid_redirect = False
+            try:
+                parsed_redirect = urlparse(redirect_uri)
+                redirect_base = f"{parsed_redirect.scheme}://{parsed_redirect.netloc}"
+
+                for allowed_uri in allowed_uris:
+                    parsed_allowed = urlparse(allowed_uri)
+                    allowed_base = f"{parsed_allowed.scheme}://{parsed_allowed.netloc}"
+                    if redirect_base == allowed_base:
+                        is_valid_redirect = True
+                        break
+            except Exception as e:
+                logger.warning(f"Failed to parse redirect_uri: {str(e)}")
+
+            if not is_valid_redirect:
                 return error_response("Invalid redirect_uri", 400)
 
         # getting db connection
@@ -296,10 +330,24 @@ async def handle_signin(request: Any, env: Any, path_params: Dict[str, str], que
         if user is None or "password" not in user:
             return error_response("Invalid username or password", 401)
         stored_password = user["password"]
-        
+
         # Verify the password
-        salt, stored_hash = stored_password.split('$')
-        password_hash = hashlib.pbkdf2_hmac('sha256', body["password"].encode('utf-8'), salt.encode('utf-8'), __HASHING_ITERATIONS).hex()
+        try:
+            parts = stored_password.split('$')
+            if len(parts) != 2:
+                logger.error(f"Invalid password format for user {user.get('id')}")
+                return error_response("Invalid username or password", 401)
+            salt, stored_hash = parts
+        except Exception as e:
+            logger.error(f"Password verification failed: {str(e)}")
+            return error_response("Invalid username or password", 401)
+
+        try:
+            password_hash = hashlib.pbkdf2_hmac('sha256', body["password"].encode('utf-8'), salt.encode('utf-8'), __HASHING_ITERATIONS).hex()
+        except Exception as e:
+            logger.error(f"Hash computation failed: {str(e)}")
+            return error_response("Invalid username or password", 401)
+
         if password_hash != stored_hash:
             return error_response("Invalid username or password", 401)
 

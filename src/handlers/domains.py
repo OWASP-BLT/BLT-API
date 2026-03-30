@@ -55,6 +55,16 @@ async def handle_domains(
             try:
                 page, per_page = parse_pagination_params(query_params)
 
+                # GET total count first
+                count_result = await db.prepare('''
+                    SELECT COUNT(*) as total
+                    FROM tags t
+                    INNER JOIN domain_tags dt ON t.id = dt.tag_id
+                    WHERE dt.domain_id = ?
+                ''').bind(int(domain_id)).first()
+
+                total = count_result.to_py().get('total', 0) if hasattr(count_result, 'to_py') else count_result.get('total', 0) if count_result else 0
+
                 # JOIN query – kept as raw parameterized SQL because the ORM
                 # does not yet support cross-table JOINs.
                 result = await db.prepare('''
@@ -77,7 +87,9 @@ async def handle_domains(
                     "pagination": {
                         "page": page,
                         "per_page": per_page,
-                        "count": len(data)
+                        "count": len(data),
+                        "total": total,
+                        "total_pages": max(1, (total + per_page - 1) // per_page)
                     }
                 })
             except Exception as e:
