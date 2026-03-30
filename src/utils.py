@@ -33,6 +33,7 @@ except ImportError:
         def __init__(self, body, status=200, headers=None):
             self.body = body
             self.status = status
+            self.status_code = status
             self.headers = headers or {}
 
 
