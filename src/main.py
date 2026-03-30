@@ -33,7 +33,7 @@ from handlers import (
     handle_verify_email,
     make_routes_handler
 )
-from utils import json_response, error_response, cors_headers
+from utils import error_response, cors_headers
 from libs.db import get_db_safe
 
 # Initialize the router
@@ -204,12 +204,7 @@ class Default(WorkerEntrypoint):
 
             await get_db_safe(self.env)  # Ensure database is available and initialized
         
-            # Get URL and method
-            url = request.url
-            method = request.method
-        
-
-            # Route the request
+# Route the request
             response = await router.handle(request, self.env)
             
             return response

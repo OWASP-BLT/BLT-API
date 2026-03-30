@@ -90,7 +90,7 @@ async def handle_signup(
         # getting db connection
         try :
             db = await get_db_safe(env)
-        except Exception as e:       
+        except Exception:       
             return error_response("Database connection error", 500)
 
         username_val = body.get("username")
@@ -300,7 +300,7 @@ async def handle_signin(request: Any, env: Any, path_params: Dict[str, str], que
         # getting db connection
         try:
             db = await get_db_safe(env)
-        except Exception as e:
+        except Exception:
             return error_response("Database connection error", 500)
 
         # Fetch user by username hash (blind index lookup)

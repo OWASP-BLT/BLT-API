@@ -5,13 +5,13 @@ This module provides an async HTTP client that interfaces with
 the main OWASP BLT API backend.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 import json
 from urllib.parse import urlencode
 
 # Try to import Cloudflare Workers JS bindings
 try:
-    from js import fetch, Headers, Object
+    from js import fetch
     _WORKERS_RUNTIME = True
 except ImportError:
     _WORKERS_RUNTIME = False

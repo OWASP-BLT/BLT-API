@@ -184,8 +184,11 @@ class Router:
                         path=path
                     )
                 except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Handler error in {path}: {str(e)}")
                     return error_response(
-                        message=f"Handler error: {str(e)}",
+                        message="Internal server error",
                         status=500
                     )
         
