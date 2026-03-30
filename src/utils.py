@@ -309,3 +309,19 @@ def extract_id_from_result(result: Any, field:str) -> Optional[int]:
         return result.get(field)
     
     return None
+
+
+async def client_call(coro, logger, context: str = "handler"):
+    """Call a client coroutine, returning (result, err_response) tuple.
+
+    Usage:
+        result, err = await client_call(client.get_foo(), logger, "hunts")
+        if err:
+            return err
+    """
+    import logging as _logging
+    try:
+        return await coro, None
+    except Exception as e:
+        logger.error("Request failed in %s: %s", context, str(e))
+        return None, error_response("Internal Server Error", status=500)
