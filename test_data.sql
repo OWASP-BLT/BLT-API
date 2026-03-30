@@ -402,7 +402,7 @@ INSERT INTO user_bug_flags (user_id, bug_id, flag_reason) VALUES
 
 -- Display inserted data
 SELECT 'Users:' as info;
-SELECT id, username, email_encrypted as email, total_score, winnings, is_active FROM users;
+SELECT id, username, email_encrypted, total_score, winnings, is_active FROM users;
 
 SELECT 'Domains:' as info;
 SELECT d.id, d.name, d.url, u.username as submitted_by FROM domains d
