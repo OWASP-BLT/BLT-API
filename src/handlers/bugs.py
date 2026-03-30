@@ -106,7 +106,7 @@ async def handle_bugs(
                     "bugs.user_agent", "bugs.ocr", "bugs.screenshot",
                     "bugs.closed_date", "bugs.github_url", "bugs.created",
                     "bugs.modified", "bugs.is_hidden", "bugs.rewarded",
-"bugs.cve_id", "bugs.cve_score",
+                    "bugs.cve_id", "bugs.cve_score",
                     "bugs.hunt", "bugs.domain", "bugs.user", "bugs.closed_by",
                     "domains.id as domain_id", "domains.name as domain_name",
                     "domains.url as domain_url", "domains.logo as domain_logo"
