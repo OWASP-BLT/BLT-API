@@ -7,14 +7,13 @@ the OWASP BLT project, running efficiently on Cloudflare Workers.
 
 # Try to import Cloudflare Workers JS bindings
 try:
-    from js import Response, Headers, JSON # pyright: ignore[reportMissingImports]
+    from js import Response, Headers  # pyright: ignore[reportMissingImports]
     _WORKERS_RUNTIME = True
 except ImportError:
     _WORKERS_RUNTIME = False
     from utils import Response, Headers
 
 from workers import WorkerEntrypoint # type: ignore [as worker instance is available at runtime]
-from os import path
 from router import Router
 from handlers import (
     handle_bugs,
@@ -35,7 +34,7 @@ from handlers import (
     make_routes_handler
 )
 from utils import json_response, error_response, cors_headers
-from libs.db import get_db_safe 
+from libs.db import get_db_safe
 
 # Initialize the router
 router = Router()
@@ -179,6 +178,8 @@ _add_v2_route("GET", "/repos/{id}", handle_repos)
 _add_v2_route("GET", "/routes", make_routes_handler(router))
 
 class Default(WorkerEntrypoint):
+    """Cloudflare Workers entry point for the BLT API."""
+    
     async def on_fetch(self, request):
         """
         Main entry point for Cloudflare Workers.

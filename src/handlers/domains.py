@@ -113,7 +113,7 @@ async def handle_domains(
                 "per_page": per_page,
                 "count": len(data),
                 "total": total,
-                "total_pages": (total + per_page - 1) // per_page if total > 0 else 0
+                "total_pages": max(1, (total + per_page - 1) // per_page)
             }
         })
     except Exception as e:

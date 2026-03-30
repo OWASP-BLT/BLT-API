@@ -5,15 +5,12 @@ Uses fetch() when running in Cloudflare Workers; falls back to urllib for local 
 """
 
 import json
-import base64
 from typing import Optional, Tuple
 import logging
 
 from services.email_templates import (
     get_verification_email,
     get_password_reset_email,
-    get_welcome_email,
-    get_bug_submission_confirmation,
 )
 
 try:
@@ -38,6 +35,15 @@ class EmailService:
         from_email: str,
         from_name: str = "OWASP BLT",
     ):
+        """
+        Initialize the email service.
+        
+        Args:
+            smtp_username: SendGrid username (kept for interface compatibility)
+            smtp_password: SendGrid API key
+            from_email: Default sender email address
+            from_name: Default sender display name
+        """
         # smtp_password is the SendGrid API key; smtp_username is kept for
         # interface compatibility but SendGrid Web API only needs the key.
         self.api_key = smtp_password
@@ -120,6 +126,7 @@ class EmailService:
         base_url: str,
         expires_hours: int = 24,
     ) -> Tuple[int, str]:
+        """Send account verification email to newly registered user."""
         verification_link = f"{base_url}/auth/verify-email?token={verification_token}"
         subject = "Verify your OWASP BLT account"
         html_content = get_verification_email(username, verification_link, expires_hours)
@@ -134,6 +141,7 @@ class EmailService:
         base_url: str,
         expires_hours: int = 1,
     ) -> Tuple[int, str]:
+        """Send password reset email with reset link."""
         reset_link = f"{base_url}/auth/reset-password?token={reset_token}"
         subject = "Reset your OWASP BLT password"
         html_content = get_password_reset_email(username, reset_link, expires_hours)

@@ -10,18 +10,23 @@ import json
 # Try to import Cloudflare Workers JS bindings
 # Falls back to mock implementations for testing
 try:
-    from js import Response, Headers, JSON, Object
+    from js import Response, Headers
     _WORKERS_RUNTIME = True
 except ImportError:
     _WORKERS_RUNTIME = False
     
     # Mock implementations for testing outside Workers runtime
     class Headers:
+        """Mock Headers class for testing outside Workers runtime."""
+        
         @classmethod
         def new(cls, headers_dict):
+            """Create a new headers object from a dict."""
             return headers_dict
     
     class Response:
+        """Mock Response class for testing outside Workers runtime."""
+        
         @classmethod
         def new(cls, body, init=None):
             """Mock Response.new() to match Cloudflare Workers API."""
@@ -30,7 +35,10 @@ except ImportError:
             return MockResponse(body, init.get('status', 200), init.get('headers', {}))
     
     class MockResponse:
+        """Mock HTTP response for testing."""
+        
         def __init__(self, body, status=200, headers=None):
+            """Initialize mock response with body, status, and headers."""
             self.body = body
             self.status = status
             self.headers = headers or {}
@@ -48,6 +56,21 @@ def cors_headers() -> Dict[str, str]:
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
         "Access-Control-Max-Age": "86400",
+    }
+
+
+def security_headers() -> Dict[str, str]:
+    """
+    Return standard HTTP security headers.
+    
+    Returns:
+        Dict containing security headers to prevent common attacks
+    """
+    return {
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+        "Content-Security-Policy": "default-src 'self'",
     }
 
 
@@ -69,7 +92,8 @@ def json_response(
     """
     response_headers = {
         "Content-Type": "application/json",
-        **cors_headers()
+        **cors_headers(),
+        **security_headers()
     }
     
     if headers:

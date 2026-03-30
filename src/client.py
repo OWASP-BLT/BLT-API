@@ -17,6 +17,7 @@ except ImportError:
     _WORKERS_RUNTIME = False
     # Mock fetch for testing outside Workers runtime
     async def fetch(url, **kwargs):
+        """Mock fetch function - only available in Workers runtime."""
         raise NotImplementedError("fetch is only available in Workers runtime")
 
 

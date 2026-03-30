@@ -308,7 +308,8 @@ async def handle_users(
                 "page": page,
                 "per_page": per_page,
                 "count": len(users),
-                "total": total_count
+                "total": total_count,
+                "total_pages": max(1, (total_count + per_page - 1) // per_page)
             }
         })
     except Exception as e:
@@ -465,7 +466,8 @@ async def get_user_bugs(db: Any, user_id: str, query_params: Dict[str, str]) -> 
                 "page": page,
                 "per_page": per_page,
                 "count": len(bugs),
-                "total": total_count
+                "total": total_count,
+                "total_pages": max(1, (total_count + per_page - 1) // per_page)
             }
         })
     except Exception as e:
@@ -507,7 +509,8 @@ async def get_user_domains(db: Any, user_id: str, query_params: Dict[str, str]) 
                 "page": page,
                 "per_page": per_page,
                 "count": len(domains),
-                "total": total_count
+                "total": total_count,
+                "total_pages": max(1, (total_count + per_page - 1) // per_page)
             }
         })
     except Exception as e:

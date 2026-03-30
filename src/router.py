@@ -8,7 +8,7 @@ path parameters and different HTTP methods.
 import re
 from urllib.parse import parse_qs, urlparse
 from typing import Callable, Dict, List, Optional, Tuple, Any
-from utils import error_response, json_response
+from utils import error_response
 
 
 class Route:

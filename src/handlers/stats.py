@@ -83,6 +83,8 @@ async def handle_stats(
 
         for table_name in _TABLES_TO_COUNT:
             try:
+                # table_name is from the hardcoded _TABLES_TO_COUNT allowlist above,
+                # so this f-string interpolation is safe from SQL injection.
                 result = await db.prepare(f"SELECT COUNT(*) as count FROM {table_name}").first()
                 row = await convert_single_d1_result(result)
                 counts[table_name] = int(row.get("count", 0))
