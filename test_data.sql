@@ -61,7 +61,7 @@ INSERT INTO users (username, password, title, user_avatar_encrypted, description
         1250.50,
         450,
         1,
-        'eyJ2IjogMSwgIm4iOiAibiIsICJjIjogImMiLCAidCI6ICJ0In0=',
+        NULL,
         'hash1'
     ),
     (
@@ -73,7 +73,7 @@ INSERT INTO users (username, password, title, user_avatar_encrypted, description
         890.00,
         320,
         1,
-        'eyJ2IjogMSwgIm4iOiAibiIsICJjIjogImMiLCAidCI6ICJ0In0=',
+        NULL,
         'hash2'
     ),
     (
@@ -85,7 +85,7 @@ INSERT INTO users (username, password, title, user_avatar_encrypted, description
         450.75,
         180,
         1,
-        'eyJ2IjogMSwgIm4iOiAibiIsICJjIjogImMiLCAidCI6ICJ0In0=',
+        NULL,
         'hash3'
     ),
     (
@@ -97,7 +97,7 @@ INSERT INTO users (username, password, title, user_avatar_encrypted, description
         2100.00,
         650,
         1,
-        'eyJ2IjogMSwgIm4iOiAibiIsICJjIjogImMiLCAidCI6ICJ0In0=',
+        NULL,
         'hash4'
     ),
     (
@@ -109,7 +109,7 @@ INSERT INTO users (username, password, title, user_avatar_encrypted, description
         50.00,
         25,
         1,
-        'eyJ2IjogMSwgIm4iOiAibiIsICJjIjogImMiLCAidCI6ICJ0In0=',
+        NULL,
         'hash5'
     );
 

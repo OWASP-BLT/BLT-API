@@ -180,7 +180,7 @@ def paginated_response(
     
     if total is not None:
         response_data["pagination"]["total"] = total
-        response_data["pagination"]["total_pages"] = (total + per_page - 1) // per_page
+        response_data["pagination"]["total_pages"] = max(1, (total + per_page - 1) // per_page)
     
     return json_response(response_data)
 
@@ -283,12 +283,14 @@ def convert_d1_results(results) -> List[Dict]:
     return []
 
 async def check_required_fields(body, required_fields):
+    """Check if all required fields are present in the request body."""
     for field in required_fields:
         if field not in body:
             return False, field
     return True, None
 
 async def convert_single_d1_result(data):
+    """Convert a single D1 query result to a Python dictionary."""
     if hasattr(data, 'to_py'):
         return data.to_py()
     else:

@@ -69,3 +69,6 @@ Thumbs.db
 # Lock files
 pyproject.toml.lock
 uv.lock
+
+# Cloudflare Workers secrets
+.dev.vars
