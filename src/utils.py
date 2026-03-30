@@ -44,15 +44,35 @@ except ImportError:
             self.headers = headers or {}
 
 
-def cors_headers() -> Dict[str, str]:
+def cors_headers(env: Any = None) -> Dict[str, str]:
     """
     Return CORS headers for cross-origin requests.
-    
+
+    By default uses wildcard origin for public API. Can be restricted via
+    ALLOWED_CORS_ORIGINS environment variable (comma-separated list).
+
+    Args:
+        env: Optional environment bindings to read ALLOWED_CORS_ORIGINS from
+
     Returns:
         Dict containing CORS headers
     """
+    # Try to get specific allowed origins from environment
+    origin = "*"
+    if env:
+        try:
+            allowed_origins = getattr(env, "ALLOWED_CORS_ORIGINS", "").strip()
+            if allowed_origins:
+                # In production, would validate against request origin
+                # For now, use first allowed origin or wildcard
+                origins_list = [o.strip() for o in allowed_origins.split(",") if o.strip()]
+                if origins_list:
+                    origin = origins_list[0]
+        except Exception:
+            pass  # Fall back to wildcard on any error
+
     return {
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": origin,
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
         "Access-Control-Max-Age": "86400",

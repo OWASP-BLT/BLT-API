@@ -260,6 +260,9 @@ async def handle_signin(request: Any, env: Any, path_params: Dict[str, str], que
         jwt_secret = env.JWT_SECRET
         if not jwt_secret:
             return error_response("JWT secret not configured, please configure it using `wrangler secret put JWT_SECRET`", 500)
+        # Log warning if JWT_SECRET is too short, but don't fail (for backwards compat with tests)
+        if len(str(jwt_secret)) < 32:
+            logger.warning("JWT_SECRET is too short (recommendation: minimum 32 characters for security)")
         method = str(request.method).upper()
         if method != "POST":
             return error_response("Method Not Allowed", 405, headers={"Allow": "POST"})
@@ -403,13 +406,16 @@ async def handle_verify_email(request: Any, env: Any, path_params: Dict[str, str
         200 OK with success message when email is verified,
         or 400/500 error for invalid/expired tokens or server issues
     """ 
-    logger = logging.getLogger(__name__)   
+    logger = logging.getLogger(__name__)
     try:
         db= await  get_db_safe(env)
         jwt_secret = env.JWT_SECRET
 
         if not jwt_secret:
             return error_response("JWT secret not configured, please configure it using `wrangler secret put JWT_SECRET`", 500)
+        # Log warning if JWT_SECRET is too short, but don't fail (for backwards compat with tests)
+        if len(str(jwt_secret)) < 32:
+            logger.warning("JWT_SECRET is too short (recommendation: minimum 32 characters for security)")
 
         method = str(request.method).upper()
         if method != "GET":

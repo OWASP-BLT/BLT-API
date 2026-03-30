@@ -125,13 +125,26 @@ async def handle_organizations(
 
                 for manager in managers:
                     if manager.get("username_encrypted"):
-                        manager["username"] = decrypt_sensitive(manager.pop("username_encrypted"), env)
+                        try:
+                            manager["username"] = decrypt_sensitive(manager.pop("username_encrypted"), env)
+                        except Exception as e:
+                            logger.error(f"Failed to decrypt manager username: {str(e)}")
+                            manager["username"] = "[decryption_failed]"
+                            manager.pop("username_encrypted", None)
                     else:
                         manager.pop("username_encrypted", None)
                     if manager.get("email_encrypted"):
-                        manager["email"] = decrypt_sensitive(manager.get("email_encrypted"), env)
+                        try:
+                            manager["email"] = decrypt_sensitive(manager.get("email_encrypted"), env)
+                        except Exception as e:
+                            logger.warning(f"Failed to decrypt manager email: {str(e)}")
+                            manager["email"] = None
                     if manager.get("user_avatar_encrypted"):
-                        manager["user_avatar"] = decrypt_sensitive(manager.get("user_avatar_encrypted"), env)
+                        try:
+                            manager["user_avatar"] = decrypt_sensitive(manager.get("user_avatar_encrypted"), env)
+                        except Exception as e:
+                            logger.warning(f"Failed to decrypt manager avatar: {str(e)}")
+                            manager["user_avatar"] = None
                     manager.pop("email_encrypted", None)
                     manager.pop("user_avatar_encrypted", None)
                 
@@ -250,11 +263,20 @@ async def handle_organizations(
             
             org = org_result.to_py() if hasattr(org_result, 'to_py') else dict(org_result)
             if org.get("admin_username_encrypted"):
-                org["admin_username"] = decrypt_sensitive(org.pop("admin_username_encrypted"), env)
+                try:
+                    org["admin_username"] = decrypt_sensitive(org.pop("admin_username_encrypted"), env)
+                except Exception as e:
+                    logger.error(f"Failed to decrypt admin username: {str(e)}")
+                    org["admin_username"] = "[decryption_failed]"
+                    org.pop("admin_username_encrypted", None)
             else:
                 org.pop("admin_username_encrypted", None)
             if org.get("admin_email_encrypted"):
-                org["admin_email"] = decrypt_sensitive(org.get("admin_email_encrypted"), env)
+                try:
+                    org["admin_email"] = decrypt_sensitive(org.get("admin_email_encrypted"), env)
+                except Exception as e:
+                    logger.warning(f"Failed to decrypt admin email: {str(e)}")
+                    org["admin_email"] = None
             org.pop("admin_email_encrypted", None)
             
             # Optionally include related data if requested
@@ -270,12 +292,22 @@ async def handle_organizations(
                 managers = convert_d1_results(managers_result.results if hasattr(managers_result, 'results') else [])
                 for manager in managers:
                     if manager.get("username_encrypted"):
-                        manager["username"] = decrypt_sensitive(manager.pop("username_encrypted"), env)
+                        try:
+                            manager["username"] = decrypt_sensitive(manager.pop("username_encrypted"), env)
+                        except Exception as e:
+                            logger.error(f"Failed to decrypt manager username: {str(e)}")
+                            manager["username"] = "[decryption_failed]"
+                            manager.pop("username_encrypted", None)
                     else:
                         manager.pop("username_encrypted", None)
                     if manager.get("user_avatar_encrypted"):
-                        manager["user_avatar"] = decrypt_sensitive(manager.get("user_avatar_encrypted"), env)
-                    manager.pop("user_avatar_encrypted", None)
+                        try:
+                            manager["user_avatar"] = decrypt_sensitive(manager.get("user_avatar_encrypted"), env)
+                        except Exception as e:
+                            logger.warning(f"Failed to decrypt manager avatar: {str(e)}")
+                            manager.pop("user_avatar_encrypted", None)
+                    else:
+                        manager.pop("user_avatar_encrypted", None)
                 org["managers"] = managers
             
             if "tags" in include_related:
@@ -347,7 +379,12 @@ async def handle_organizations(
 
         for org in organizations:
             if org.get("admin_username_encrypted"):
-                org["admin_username"] = decrypt_sensitive(org.pop("admin_username_encrypted"), env)
+                try:
+                    org["admin_username"] = decrypt_sensitive(org.pop("admin_username_encrypted"), env)
+                except Exception as e:
+                    logger.error(f"Failed to decrypt admin username: {str(e)}")
+                    org["admin_username"] = "[decryption_failed]"
+                    org.pop("admin_username_encrypted", None)
             else:
                 org.pop("admin_username_encrypted", None)
 
