@@ -10,18 +10,23 @@ import json
 # Try to import Cloudflare Workers JS bindings
 # Falls back to mock implementations for testing
 try:
-    from js import Response, Headers, JSON, Object
+    from js import Response, Headers
     _WORKERS_RUNTIME = True
 except ImportError:
     _WORKERS_RUNTIME = False
     
     # Mock implementations for testing outside Workers runtime
     class Headers:
+        """Mock Headers class for testing outside Workers runtime."""
+        
         @classmethod
         def new(cls, headers_dict):
+            """Create a new headers object from a dict."""
             return headers_dict
     
     class Response:
+        """Mock Response class for testing outside Workers runtime."""
+        
         @classmethod
         def new(cls, body, init=None):
             """Mock Response.new() to match Cloudflare Workers API."""
@@ -30,24 +35,62 @@ except ImportError:
             return MockResponse(body, init.get('status', 200), init.get('headers', {}))
     
     class MockResponse:
+        """Mock HTTP response for testing."""
+        
         def __init__(self, body, status=200, headers=None):
+            """Initialize mock response with body, status, and headers."""
             self.body = body
             self.status = status
             self.headers = headers or {}
 
 
-def cors_headers() -> Dict[str, str]:
+def cors_headers(env: Any = None) -> Dict[str, str]:
     """
     Return CORS headers for cross-origin requests.
-    
+
+    By default uses wildcard origin for public API. Can be restricted via
+    ALLOWED_CORS_ORIGINS environment variable (comma-separated list).
+
+    Args:
+        env: Optional environment bindings to read ALLOWED_CORS_ORIGINS from
+
     Returns:
         Dict containing CORS headers
     """
+    # Try to get specific allowed origins from environment
+    origin = "*"
+    if env:
+        try:
+            allowed_origins = getattr(env, "ALLOWED_CORS_ORIGINS", "").strip()
+            if allowed_origins:
+                # In production, would validate against request origin
+                # For now, use first allowed origin or wildcard
+                origins_list = [o.strip() for o in allowed_origins.split(",") if o.strip()]
+                if origins_list:
+                    origin = origins_list[0]
+        except Exception:
+            pass  # Fall back to wildcard on any error
+
     return {
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": origin,
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
         "Access-Control-Max-Age": "86400",
+    }
+
+
+def security_headers() -> Dict[str, str]:
+    """
+    Return standard HTTP security headers.
+    
+    Returns:
+        Dict containing security headers to prevent common attacks
+    """
+    return {
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+        "Content-Security-Policy": "default-src 'self'",
     }
 
 
@@ -69,7 +112,8 @@ def json_response(
     """
     response_headers = {
         "Content-Type": "application/json",
-        **cors_headers()
+        **cors_headers(),
+        **security_headers()
     }
     
     if headers:
@@ -77,11 +121,18 @@ def json_response(
     
     # Convert Python dict to JSON string
     json_body = json.dumps(data)
-    
+
+    # In Workers runtime, headers should be a JS Headers object (or sequence).
+    # Passing a plain Python dict can cause default text/plain responses.
+    if _WORKERS_RUNTIME:
+        response_headers_obj = Headers.new(list(response_headers.items()))
+    else:
+        response_headers_obj = response_headers
+
     # Create Response with proper status code for Cloudflare Workers
     response_init = {
         'status': status,
-        'headers': response_headers
+        'headers': response_headers_obj
     }
     return Response.new(json_body, response_init)
 
@@ -173,7 +224,7 @@ def paginated_response(
     
     if total is not None:
         response_data["pagination"]["total"] = total
-        response_data["pagination"]["total_pages"] = (total + per_page - 1) // per_page
+        response_data["pagination"]["total_pages"] = max(1, (total + per_page - 1) // per_page)
     
     return json_response(response_data)
 
@@ -276,12 +327,31 @@ def convert_d1_results(results) -> List[Dict]:
     return []
 
 async def check_required_fields(body, required_fields):
+    """
+    Check if all required fields are present in the request body.
+
+    Args:
+        body: Request body dictionary
+        required_fields: List of field names that must be present
+
+    Returns:
+        Tuple of (is_valid, missing_field_name) where is_valid is True if all fields present
+    """
     for field in required_fields:
         if field not in body:
             return False, field
     return True, None
 
 async def convert_single_d1_result(data):
+    """
+    Convert a single D1 query result to a Python dictionary.
+
+    Args:
+        data: Single result from D1 database query (JsProxy or dict-like object)
+
+    Returns:
+        Dictionary representation of the result
+    """
     if hasattr(data, 'to_py'):
         return data.to_py()
     else:
