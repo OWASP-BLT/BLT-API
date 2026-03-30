@@ -87,7 +87,8 @@ async def handle_stats(
                 row = await convert_single_d1_result(result)
                 counts[table_name] = int(row.get("count", 0))
             except Exception as e:
-                if "no such table" in str(e).lower():
+                error_msg = str(e).lower()
+                if "no such table" in error_msg or "table not found" in error_msg:
                     counts[table_name] = 0
                     logger.warning("Table not found while fetching stats: %s", table_name)
                 else:

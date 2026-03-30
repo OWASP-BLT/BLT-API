@@ -77,11 +77,18 @@ def json_response(
     
     # Convert Python dict to JSON string
     json_body = json.dumps(data)
-    
+
+    # In Workers runtime, headers should be a JS Headers object (or sequence).
+    # Passing a plain Python dict can cause default text/plain responses.
+    if _WORKERS_RUNTIME:
+        response_headers_obj = Headers.new(list(response_headers.items()))
+    else:
+        response_headers_obj = response_headers
+
     # Create Response with proper status code for Cloudflare Workers
     response_init = {
         'status': status,
-        'headers': response_headers
+        'headers': response_headers_obj
     }
     return Response.new(json_body, response_init)
 

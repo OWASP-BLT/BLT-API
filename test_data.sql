@@ -51,61 +51,66 @@ INSERT INTO tags (name) VALUES
 -- Insert test users
 -- Note: In production, passwords should be properly hashed (bcrypt, argon2, etc.)
 -- These are placeholder hashed passwords for testing
-INSERT INTO users (username, password, email, title, user_avatar, description, winnings, total_score, is_active) VALUES
+INSERT INTO users (username, password, title, user_avatar_encrypted, description_encrypted, winnings, total_score, is_active, email_encrypted, email_hash) VALUES
     (
         'alice_hunter',
         'pbkdf2_sha256$260000$test_hash_alice',
-        'alice@example.com',
         3,
-        'https://avatars.example.com/alice.jpg',
-        'Security researcher specializing in web application vulnerabilities. OSCP certified.',
+        'encrypted_avatar',
+        'encrypted_description',
         1250.50,
         450,
-        1
+        1,
+        'encrypted_alice@example.com',
+        'hash1'
     ),
     (
         'bob_security',
         'pbkdf2_sha256$260000$test_hash_bob',
-        'bob@example.com',
         2,
-        'https://avatars.example.com/bob.jpg',
-        'Penetration tester and bug bounty hunter. Love finding SQLi vulnerabilities.',
+        'encrypted_avatar',
+        'encrypted_description',
         890.00,
         320,
-        1
+        1,
+        'encrypted_bob@example.com',
+        'hash2'
     ),
     (
         'charlie_dev',
         'pbkdf2_sha256$260000$test_hash_charlie',
-        'charlie@example.com',
         1,
-        'https://avatars.example.com/charlie.jpg',
-        'Full-stack developer interested in application security.',
+        'encrypted_avatar',
+        'encrypted_description',
         450.75,
         180,
-        1
+        1,
+        'encrypted_charlie@example.com',
+        'hash3'
     ),
     (
         'diana_admin',
         'pbkdf2_sha256$260000$test_hash_diana',
-        'diana@example.com',
         4,
-        'https://avatars.example.com/diana.jpg',
-        'Security team lead at OWASP. Bug bounty program manager.',
+        'encrypted_avatar',
+        'encrypted_description',
         2100.00,
         650,
-        1
+        1,
+        'encrypted_diana@example.com',
+        'hash4'
     ),
     (
         'eve_newbie',
         'pbkdf2_sha256$260000$test_hash_eve',
-        'eve@example.com',
         1,
         NULL,
-        'New to bug bounties, learning the ropes!',
+        'encrypted_description',
         50.00,
         25,
-        1
+        1,
+        'encrypted_eve@example.com',
+        'hash5'
     );
 
 -- Insert test organizations
@@ -397,7 +402,7 @@ INSERT INTO user_bug_flags (user_id, bug_id, flag_reason) VALUES
 
 -- Display inserted data
 SELECT 'Users:' as info;
-SELECT id, username, email, total_score, winnings, is_active FROM users;
+SELECT id, username, email_encrypted as email, total_score, winnings, is_active FROM users;
 
 SELECT 'Domains:' as info;
 SELECT d.id, d.name, d.url, u.username as submitted_by FROM domains d

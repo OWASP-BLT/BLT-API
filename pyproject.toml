@@ -19,6 +19,7 @@ classifiers = [
 ]
 
 dependencies = [
+    "uvicorn>=0.42.0",
 ]
 
 [project.optional-dependencies]

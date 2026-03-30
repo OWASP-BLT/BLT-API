@@ -1,0 +1,19 @@
+{
+  "name": "blt-api",
+  "version": "1.0.0",
+  "description": "<p align=\"center\">\r   <strong>Full-featured REST API for OWASP BLT running on Cloudflare Workers</strong>\r </p>",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "tailwindcss": "^3.4.19"
+  }
+}

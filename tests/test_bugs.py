@@ -284,13 +284,13 @@ class TestListBugs:
             resp = await handle_bugs(MockRequest(), MockEnv(), {}, {"per_page": "20"}, "/bugs")
         assert resp.data["pagination"]["total_pages"] == 3
 
-    async def test_empty_results_zero_total_pages(self):
+    async def test_empty_results_has_minimum_one_total_page(self):
         db = MockDB()
         db.set_all([])
         mock_bug, _ = _make_mock_bug_class(count=0)
         with patch("handlers.bugs.get_db_safe", AsyncMock(return_value=db)),              patch("handlers.bugs.Bug", mock_bug):
             resp = await handle_bugs(MockRequest(), MockEnv(), {}, {}, "/bugs")
-        assert resp.data["pagination"]["total_pages"] == 0
+        assert resp.data["pagination"]["total_pages"] == 1
 
     async def test_status_filter_applied(self):
         db = MockDB()
