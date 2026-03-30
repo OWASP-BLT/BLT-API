@@ -216,7 +216,10 @@ class Default(WorkerEntrypoint):
             return response
             
         except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Unhandled exception: {str(e)}", exc_info=True)
             return error_response(
-                message=f"Internal Server Error: {str(e)}",
+                message="Internal Server Error",
                 status=500
             )

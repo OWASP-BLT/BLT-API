@@ -307,14 +307,31 @@ def convert_d1_results(results) -> List[Dict]:
     return []
 
 async def check_required_fields(body, required_fields):
-    """Check if all required fields are present in the request body."""
+    """
+    Check if all required fields are present in the request body.
+
+    Args:
+        body: Request body dictionary
+        required_fields: List of field names that must be present
+
+    Returns:
+        Tuple of (is_valid, missing_field_name) where is_valid is True if all fields present
+    """
     for field in required_fields:
         if field not in body:
             return False, field
     return True, None
 
 async def convert_single_d1_result(data):
-    """Convert a single D1 query result to a Python dictionary."""
+    """
+    Convert a single D1 query result to a Python dictionary.
+
+    Args:
+        data: Single result from D1 database query (JsProxy or dict-like object)
+
+    Returns:
+        Dictionary representation of the result
+    """
     if hasattr(data, 'to_py'):
         return data.to_py()
     else:

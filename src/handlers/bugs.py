@@ -3,10 +3,9 @@ Bugs handler for the BLT API.
 """
 
 from typing import Any, Dict
-from utils import error_response, parse_pagination_params, parse_json_body, convert_d1_results
+from utils import error_response, parse_pagination_params, parse_json_body, convert_d1_results, json_response
 from libs.db import get_db_safe
 from models import Bug
-from workers import Response
 import logging
 
 async def handle_bugs(
@@ -46,7 +45,7 @@ async def handle_bugs(
         db = await get_db_safe(env)  
     except Exception as e:
         logger.error(f"Database connection error: {str(e)}")
-        return error_response(f"Database connection error: {str(e)}", status=500)
+        return error_response("Database connection error", status=500)
     
     if path.endswith("/search"):
         query = query_params.get("q", "")
@@ -86,14 +85,14 @@ async def handle_bugs(
             ''').bind(f"%{query}%", f"%{query}%", limit_int).all()
             
             response_data = convert_d1_results(search_result.results if hasattr(search_result, 'results') else [])
-            return Response.json({
+            return json_response({
                 "success": True,
                 "query": query,
                 "data": response_data
             })
         except Exception as e:
             logger.error(f"Error searching bugs: {str(e)}")
-            return error_response(f"Failed to search bugs: {str(e)}", status=500)
+            return error_response("Failed to search bugs", status=500)
     
     # Get specific bug
     if "id" in path_params:
@@ -176,13 +175,13 @@ async def handle_bugs(
             bug_data['screenshots'] = screenshots_data
             bug_data['tags'] = tags_data
             
-            return Response.json({
+            return json_response({
                 "success": True,
                 "data": bug_data
             })
         except Exception as e:
             logger.error(f"Error fetching bug {bug_id}: {str(e)}")
-            return error_response(f"Failed to fetch bug: {str(e)}", status=500)
+            return error_response("Failed to fetch bug", status=500)
     
     # Create bug
     if method == "POST":
@@ -287,20 +286,20 @@ async def handle_bugs(
                 else:
                     bug_data = {"id": last_id}
                 
-                return Response.json({
+                return json_response({
                     "success": True,
                     "message": "Bug created successfully",
                     "data": bug_data
                 }, status=201)
             else:
-                return Response.json({
+                return json_response({
                     "success": True,
                     "message": "Bug created successfully"
                 }, status=201)
                 
         except Exception as e:
             logger.error(f"Error creating bug: {str(e)}")
-            return error_response(f"Failed to create bug: {str(e)}", status=500)
+            return error_response("Failed to create bug", status=500)
     
     # List bugs with pagination
     page, per_page = parse_pagination_params(query_params)
@@ -370,7 +369,7 @@ async def handle_bugs(
 
         data = convert_d1_results(result.results if hasattr(result, 'results') else [])
 
-        return Response.json({
+        return json_response({
             "success": True,
             "data": data,
             "pagination": {
@@ -383,4 +382,4 @@ async def handle_bugs(
         })
     except Exception as e:
         logger.error(f"Error fetching bugs: {str(e)}")
-        return error_response(f"Failed to fetch bugs: {str(e)}", status=500)
+        return error_response("Failed to fetch bugs", status=500)

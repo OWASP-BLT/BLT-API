@@ -2,10 +2,10 @@
 Domains handler for the BLT API.
 """
 
+import logging
 from typing import Any, Dict
-from utils import error_response, parse_pagination_params, convert_d1_results
+from utils import error_response, parse_pagination_params, convert_d1_results, json_response
 from libs.db import get_db_safe
-from workers import Response
 from models import Domain
 
 
@@ -35,10 +35,12 @@ async def handle_domains(
         JSON response with domain data and pagination metadata,
         or error response (400 for invalid ID, 404 for not found, 500 for DB errors)
     """
+    logger = logging.getLogger(__name__)
     try:
         db = await get_db_safe(env)
     except Exception as e:
-        return error_response(str(e), status=503)
+        logger.error(f"Database connection error: {str(e)}")
+        return error_response("Database connection error", status=503)
 
     # Get specific domain
     if "id" in path_params:
@@ -68,7 +70,7 @@ async def handle_domains(
                     result.results if hasattr(result, 'results') else []
                 )
 
-                return Response.json({
+                return json_response({
                     "success": True,
                     "domain_id": int(domain_id),
                     "data": data,
@@ -79,9 +81,8 @@ async def handle_domains(
                     }
                 })
             except Exception as e:
-                return error_response(
-                    f"Failed to fetch domain tags: {str(e)}", status=500
-                )
+                logger.error(f"Error fetching domain tags: {str(e)}")
+                return error_response("Failed to fetch domain tags", status=500)
 
         # GET /domains/{id}
         try:
@@ -89,9 +90,10 @@ async def handle_domains(
             if not domain:
                 return error_response("Domain not found", status=404)
 
-            return Response.json({"success": True, "data": domain})
+            return json_response({"success": True, "data": domain})
         except Exception as e:
-            return error_response(f"Failed to fetch domain: {str(e)}", status=500)
+            logger.error(f"Error fetching domain: {str(e)}")
+            return error_response("Failed to fetch domain", status=500)
 
     # GET /domains  –  list with pagination
     try:
@@ -105,7 +107,7 @@ async def handle_domains(
             .all()
         )
 
-        return Response.json({
+        return json_response({
             "success": True,
             "data": data,
             "pagination": {
@@ -117,4 +119,5 @@ async def handle_domains(
             }
         })
     except Exception as e:
-        return error_response(f"Failed to fetch domains: {str(e)}", status=500)
+        logger.error(f"Error fetching domains: {str(e)}")
+        return error_response("Failed to fetch domains", status=500)

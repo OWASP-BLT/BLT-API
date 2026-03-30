@@ -31,8 +31,10 @@ from handlers.bugs import handle_bugs  # noqa: E402
 
 @pytest.fixture(autouse=True)
 def mock_response():
-    """Ensure handle_bugs uses the local _MockResponse class."""
-    with patch("handlers.bugs.Response", _MockResponse):
+    """Ensure handle_bugs uses the local _MockResponse class for json_response."""
+    def mock_json_response(data, status=200, headers=None):
+        return _MockResponse(data, status)
+    with patch("handlers.bugs.json_response", mock_json_response):
         yield
 
 

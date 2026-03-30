@@ -5,7 +5,7 @@ Exposes registered API routes for programmatic discoverability.
 """
 
 from typing import Any, Dict, Callable
-from workers import Response
+from utils import json_response
 from router import Router
 
 
@@ -37,7 +37,7 @@ def make_routes_handler(router: Router) -> Callable:
         """
         routes = router.get_route_list()
 
-        return Response.json({
+        return json_response({
             "success": True,
             "data": routes,
             "count": len(routes)

@@ -2,9 +2,9 @@
 Organizations handler for the BLT API.
 """
 
+import logging
 from typing import Any, Dict
-from utils import convert_d1_results, error_response, paginated_response, parse_pagination_params
-from workers import Response
+from utils import convert_d1_results, error_response, paginated_response, parse_pagination_params, json_response
 from libs.db import get_db_safe
 from libs.data_protection import decrypt_sensitive
 
@@ -17,7 +17,7 @@ async def handle_organizations(
 ) -> Any:
     """
     Handle organization-related requests.
-    
+
     Endpoints:
         GET /organizations - List organizations with pagination and search
         GET /organizations/{id} - Get a specific organization with details
@@ -28,10 +28,12 @@ async def handle_organizations(
         GET /organizations/{id}/integrations - Get organization integrations
         GET /organizations/{id}/stats - Get organization statistics
     """
+    logger = logging.getLogger(__name__)
     try:
         db = await get_db_safe(env)
     except Exception as e:
-        return error_response(str(e), status=503)
+        logger.error(f"Database connection error: {str(e)}")
+        return error_response("Database connection error", status=503)
     
     # Get specific organization
     if "id" in path_params:
@@ -70,7 +72,8 @@ async def handle_organizations(
                 
                 return paginated_response(domains, page=page, per_page=per_page, total=total)
             except Exception as e:
-                return error_response(f"Failed to fetch organization domains: {str(e)}", status=500)
+                logger.error(f"Error fetching organization domains: {str(e)}")
+                return error_response("Failed to fetch organization domains", status=500)
         
         # Get bugs from organization's domains
         if path.endswith("/bugs"):
@@ -102,7 +105,8 @@ async def handle_organizations(
                 
                 return paginated_response(bugs, page=page, per_page=per_page, total=total)
             except Exception as e:
-                return error_response(f"Failed to fetch organization bugs: {str(e)}", status=500)
+                logger.error(f"Error fetching organization bugs: {str(e)}")
+                return error_response("Failed to fetch organization bugs", status=500)
         
         # Get organization managers
         if path.endswith("/managers"):
@@ -131,13 +135,14 @@ async def handle_organizations(
                     manager.pop("email_encrypted", None)
                     manager.pop("user_avatar_encrypted", None)
                 
-                return Response.json({
+                return json_response({
                     "success": True,
                     "data": managers,
                     "count": len(managers)
                 })
             except Exception as e:
-                return error_response(f"Failed to fetch organization managers: {str(e)}", status=500)
+                logger.error(f"Error fetching organization managers: {str(e)}")
+                return error_response("Failed to fetch organization managers", status=500)
         
         # Get organization tags
         if path.endswith("/tags"):
@@ -152,13 +157,14 @@ async def handle_organizations(
                 
                 tags = convert_d1_results(result.results if hasattr(result, 'results') else [])
                 
-                return Response.json({
+                return json_response({
                     "success": True,
                     "data": tags,
                     "count": len(tags)
                 })
             except Exception as e:
-                return error_response(f"Failed to fetch organization tags: {str(e)}", status=500)
+                logger.error(f"Error fetching organization tags: {str(e)}")
+                return error_response("Failed to fetch organization tags", status=500)
         
         # Get organization integrations
         if path.endswith("/integrations"):
@@ -173,13 +179,14 @@ async def handle_organizations(
                 
                 integrations = convert_d1_results(result.results if hasattr(result, 'results') else [])
                 
-                return Response.json({
+                return json_response({
                     "success": True,
                     "data": integrations,
                     "count": len(integrations)
                 })
             except Exception as e:
-                return error_response(f"Failed to fetch organization integrations: {str(e)}", status=500)
+                logger.error(f"Error fetching organization integrations: {str(e)}")
+                return error_response("Failed to fetch organization integrations", status=500)
         
         # Get organization statistics
         if path.endswith("/stats"):
@@ -221,12 +228,13 @@ async def handle_organizations(
                     "manager_count": manager_count_data.get("count", 0)
                 }
                 
-                return Response.json({
+                return json_response({
                     "success": True,
                     "data": stats
                 })
             except Exception as e:
-                return error_response(f"Failed to fetch organization stats: {str(e)}", status=500)
+                logger.error(f"Error fetching organization stats: {str(e)}")
+                return error_response("Failed to fetch organization stats", status=500)
         
         # Get organization details with related data
         try:
@@ -286,12 +294,13 @@ async def handle_organizations(
                 domain_count_data = domain_count_result.to_py() if hasattr(domain_count_result, 'to_py') else dict(domain_count_result) if domain_count_result else {}
                 org["domain_count"] = domain_count_data.get("count", 0)
             
-            return Response.json({
+            return json_response({
                 "success": True,
                 "data": org
             })
         except Exception as e:
-            return error_response(f"Failed to fetch organization: {str(e)}", status=500)
+            logger.error(f"Error fetching organization: {str(e)}")
+            return error_response("Failed to fetch organization", status=500)
     
     # List organizations with pagination and search
     try:
@@ -352,4 +361,5 @@ async def handle_organizations(
         
         return paginated_response(organizations, page=page, per_page=per_page, total=total)
     except Exception as e:
-        return error_response(f"Failed to fetch organizations: {str(e)}", status=500)
+        logger.error(f"Error fetching organizations: {str(e)}")
+        return error_response("Failed to fetch organizations", status=500)

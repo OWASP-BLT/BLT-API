@@ -6,12 +6,11 @@ import time
 from typing import Any, Dict
 
 from libs.db import get_db_safe
-from utils import parse_json_body, error_response, cors_headers, check_required_fields, get_blt_api_url
+from utils import parse_json_body, error_response, cors_headers, check_required_fields, get_blt_api_url, json_response
 from libs.constant import __HASHING_ITERATIONS
 from libs.jwt_utils import create_access_token, decode_jwt
 from libs.data_protection import encrypt_sensitive, decrypt_sensitive, blind_index
 from services.email_service import EmailService
-from workers import Response
 from models import User
 
 import logging
@@ -211,7 +210,7 @@ async def handle_signup(
         }
         if redirect_uri:
             resp_body["redirect_to"] = redirect_uri
-        return Response.json(resp_body, status=201, headers=cors_headers())
+        return json_response(resp_body, status=201)
 
     except Exception as e:
         logger.error("Error during signup: %s", str(e))
@@ -328,7 +327,7 @@ async def handle_signin(request: Any, env: Any, path_params: Dict[str, str], que
         }
         if redirect_uri:
             res["redirect_to"] = redirect_uri
-        return Response.json(res, status=200, headers=cors_headers())
+        return json_response(res, status=200)
 
     except Exception as e:
         logger.error("Error during login: %s", str(e))
@@ -383,7 +382,7 @@ async def handle_verify_email(request: Any, env: Any, path_params: Dict[str, str
         # Activate the user's account
         await User.objects(db).filter(id=user_id).update(is_active=True)
 
-        return Response.json({"message": "Email verified successfully, your account is now active."}, status=200, headers=cors_headers())
+        return json_response({"message": "Email verified successfully, your account is now active."}, status=200)
 
     except Exception as e:
         
