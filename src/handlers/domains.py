@@ -41,7 +41,7 @@ async def handle_domains(
     try:
         db = await get_db_safe(env)
     except Exception as e:
-        logger.error("Database connection error: %s", str(e))
+        logger.exception("Database connection error")
         return error_response("Service temporarily unavailable", status=503)
 
     # Get specific domain
@@ -83,7 +83,7 @@ async def handle_domains(
                     }
                 })
             except Exception as e:
-                logger.error("Failed to fetch domain tags for domain %s: %s", domain_id, str(e))
+                logger.exception("Failed to fetch domain tags for domain %s", domain_id)
                 return error_response("Failed to fetch domain tags", status=500)
 
         # GET /domains/{id}
@@ -94,7 +94,7 @@ async def handle_domains(
 
             return Response.json({"success": True, "data": domain})
         except Exception as e:
-            logger.error("Failed to fetch domain %s: %s", domain_id, str(e))
+            logger.exception("Failed to fetch domain %s", domain_id)
             return error_response("Failed to fetch domain", status=500)
 
     # GET /domains  –  list with pagination
@@ -121,5 +121,5 @@ async def handle_domains(
             }
         })
     except Exception as e:
-        logger.error("Failed to fetch domains: %s", str(e))
+        logger.exception("Failed to fetch domains")
         return error_response("Failed to fetch domains", status=500)
