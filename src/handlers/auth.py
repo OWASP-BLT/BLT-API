@@ -171,7 +171,8 @@ async def handle_signup(
                 )
             raise
         user_id = new_user.get("id") if new_user else None
-
+        
+ # send verification email here using SendGrid SMTP
         email_service = EmailService(
             smtp_username=env.SENDGRID_USERNAME,
             smtp_password=env.SENDGRID_PASSWORD,
