@@ -79,7 +79,8 @@ async def handle_bugs(
                 d.url as domain_url 
             FROM bugs b   
             LEFT JOIN domains d ON b.domain = d.id
-            WHERE b.url LIKE ? OR b.description LIKE ?
+            WHERE (b.url LIKE ? OR b.description LIKE ?)
+            AND b.is_hidden = 0
             ORDER BY b.created DESC
             LIMIT ? OFFSET 0
         ''').bind(f"%{query}%", f"%{query}%", limit_int).all()
@@ -132,7 +133,7 @@ async def handle_bugs(
                 d.logo as domain_logo
             FROM bugs b
             LEFT JOIN domains d ON b.domain = d.id
-            WHERE b.id = ?
+            WHERE b.id = ? AND b.is_hidden = 0
         ''').bind(bug_id).first()
         
         # Convert JsProxy result directly to Python dict
