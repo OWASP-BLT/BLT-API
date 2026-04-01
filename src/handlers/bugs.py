@@ -300,13 +300,13 @@ async def handle_bugs(
 
     try:
         # Build ORM queryset for counting (safe parameterized filters)
-        count_qs = Bug.objects(db)
+        count_qs = Bug.objects(db).filter(is_hidden=0)
 
         # Build WHERE conditions for the JOIN list query simultaneously.
         # Field names here are hardcoded constants (not from user input), so
         # they are safe to embed in SQL.  Values come from query_params and
         # are always passed as bound parameters.
-        where_conditions = []
+        where_conditions = ["b.is_hidden = 0"]
         where_params = []
 
         status = query_params.get("status")
