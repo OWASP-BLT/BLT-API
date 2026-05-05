@@ -2,6 +2,7 @@
 Pytest configuration file to set up test environment.
 """
 
+import json
 import sys
 import types
 from pathlib import Path
@@ -19,14 +20,25 @@ if "workers" not in sys.modules:
 	class WorkerEntrypoint:  # pragma: no cover - shim for imports only
 		pass
 
+	class _WorkersResponse:  # pragma: no cover - shim for imports only
+		def __init__(self, data=None, status=200, headers=None, body=None):
+			self.data = data
+			self.status = status
+			self.headers = headers or {}
+			self.body = body
+
 	class Response:  # pragma: no cover - shim for imports only
 		@staticmethod
 		def json(data, status=200, headers=None):
-			return {"status": status, "headers": headers or {}, "data": data}
+			return _WorkersResponse(data=data, status=status, headers=headers or {}, body=json.dumps(data))
 
 		@staticmethod
 		def new(body=None, status=200, headers=None):
-			return {"status": status, "headers": headers or {}, "body": body}
+			try:
+				data = json.loads(body) if body else None
+			except (TypeError, ValueError):
+				data = None
+			return _WorkersResponse(data=data, status=status, headers=headers or {}, body=body)
 
 	setattr(workers_mod, "WorkerEntrypoint", WorkerEntrypoint)
 	setattr(workers_mod, "Response", Response)

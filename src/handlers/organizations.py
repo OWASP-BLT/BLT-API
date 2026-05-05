@@ -5,8 +5,8 @@ Organizations handler for the BLT API.
 from typing import Any, Dict, List
 from utils import convert_d1_results, error_response, paginated_response, parse_pagination_params, success_response
 from workers import Response
-from libs.db import get_db_safe
-from libs.data_protection import decrypt_sensitive
+from src.libs.db import get_db_safe
+from src.libs.data_protection import decrypt_sensitive
 
 async def handle_organizations(
     request: Any,

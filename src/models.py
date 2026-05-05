@@ -23,7 +23,7 @@ Example usage::
     tag = await Tag.create(db, name='xss')
 """
 
-from libs.orm import Model
+from src.libs.orm import Model
 
 
 class Domain(Model):

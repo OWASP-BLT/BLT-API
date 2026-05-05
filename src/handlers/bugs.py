@@ -4,7 +4,7 @@ Bugs handler for the BLT API.
 
 from typing import Any, Dict
 from utils import error_response, parse_pagination_params, parse_json_body, convert_d1_results
-from libs.db import get_db_safe
+from src.libs.db import get_db_safe
 from models import Bug
 from workers import Response
 import logging

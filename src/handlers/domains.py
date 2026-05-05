@@ -4,7 +4,7 @@ Domains handler for the BLT API.
 
 from typing import Any, Dict
 from utils import error_response, parse_pagination_params, convert_d1_results
-from libs.db import get_db_safe
+from src.libs.db import get_db_safe
 from workers import Response
 from models import Domain
 

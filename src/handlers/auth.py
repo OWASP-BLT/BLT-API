@@ -5,11 +5,11 @@ import secrets
 import time
 from typing import Any, Dict, Optional
 
-from libs.db import get_db_safe
+from src.libs.db import get_db_safe
 from utils import parse_json_body, error_response, cors_headers, check_required_fields, extract_id_from_result, get_blt_api_url
-from libs.constant import __HASHING_ITERATIONS
-from libs.jwt_utils import create_access_token, decode_jwt
-from libs.data_protection import encrypt_sensitive, decrypt_sensitive, blind_index
+from src.libs.constant import __HASHING_ITERATIONS
+from src.libs.jwt_utils import create_access_token, decode_jwt
+from src.libs.data_protection import encrypt_sensitive, decrypt_sensitive, blind_index
 from services.email_service import EmailService
 from workers import Response
 from models import User

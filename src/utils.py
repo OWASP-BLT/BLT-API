@@ -34,6 +34,10 @@ except ImportError:
             self.body = body
             self.status = status
             self.headers = headers or {}
+            try:
+                self.data = json.loads(body) if body else None
+            except (TypeError, ValueError):
+                self.data = None
 
 
 def cors_headers() -> Dict[str, str]:
