@@ -5,18 +5,19 @@ This module provides an async HTTP client that interfaces with
 the main OWASP BLT API backend.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 import json
 from urllib.parse import urlencode
 
 # Try to import Cloudflare Workers JS bindings
 try:
-    from js import fetch, Headers, Object
+    from js import fetch
     _WORKERS_RUNTIME = True
 except ImportError:
     _WORKERS_RUNTIME = False
     # Mock fetch for testing outside Workers runtime
     async def fetch(url, **kwargs):
+        """Mock fetch function - only available in Workers runtime."""
         raise NotImplementedError("fetch is only available in Workers runtime")
 
 
@@ -103,7 +104,8 @@ class BLTClient:
             
             # Parse response
             status = response.status
-            
+            response_text = None
+
             try:
                 response_text = await response.text()
                 if response_text:
@@ -111,7 +113,9 @@ class BLTClient:
                 else:
                     response_data = {}
             except json.JSONDecodeError:
-                response_data = {"raw_response": response_text}
+                response_data = {"raw_response": response_text if response_text else ""}
+            except Exception as e:
+                response_data = {"error": f"Failed to parse response: {str(e)}", "raw_response": response_text if response_text else ""}
             
             if status >= 400:
                 return {

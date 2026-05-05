@@ -8,7 +8,7 @@ path parameters and different HTTP methods.
 import re
 from urllib.parse import parse_qs, urlparse
 from typing import Callable, Dict, List, Optional, Tuple, Any
-from utils import error_response, json_response
+from utils import error_response
 
 
 class Route:
@@ -184,8 +184,11 @@ class Router:
                         path=path
                     )
                 except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Handler error in {path}: {str(e)}")
                     return error_response(
-                        message=f"Handler error: {str(e)}",
+                        message="Internal server error",
                         status=500
                     )
         

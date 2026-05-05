@@ -41,8 +41,10 @@ from handlers.auth import handle_signin, handle_signup, handle_verify_email  # n
 
 @pytest.fixture(autouse=True)
 def mock_response():
-    """Ensure handle_auth uses the local _MockResponse class."""
-    with patch("handlers.auth.Response", _MockResponse):
+    """Ensure handle_auth uses the local _MockResponse class for json_response."""
+    def mock_json_response(data, status=200, headers=None):
+        return _MockResponse(data, status)
+    with patch("handlers.auth.json_response", mock_json_response):
         yield
 
 

@@ -2,10 +2,10 @@
 Domains handler for the BLT API.
 """
 
+import logging
 from typing import Any, Dict
-from utils import error_response, parse_pagination_params, convert_d1_results
+from utils import error_response, parse_pagination_params, convert_d1_results, json_response
 from libs.db import get_db_safe
-from workers import Response
 from models import Domain
 
 
@@ -35,10 +35,12 @@ async def handle_domains(
         JSON response with domain data and pagination metadata,
         or error response (400 for invalid ID, 404 for not found, 500 for DB errors)
     """
+    logger = logging.getLogger(__name__)
     try:
         db = await get_db_safe(env)
     except Exception as e:
-        return error_response(str(e), status=503)
+        logger.error(f"Database connection error: {str(e)}")
+        return error_response("Database connection error", status=503)
 
     # Get specific domain
     if "id" in path_params:
@@ -52,6 +54,16 @@ async def handle_domains(
         if path.endswith("/tags"):
             try:
                 page, per_page = parse_pagination_params(query_params)
+
+                # GET total count first
+                count_result = await db.prepare('''
+                    SELECT COUNT(*) as total
+                    FROM tags t
+                    INNER JOIN domain_tags dt ON t.id = dt.tag_id
+                    WHERE dt.domain_id = ?
+                ''').bind(int(domain_id)).first()
+
+                total = count_result.to_py().get('total', 0) if hasattr(count_result, 'to_py') else count_result.get('total', 0) if count_result else 0
 
                 # JOIN query – kept as raw parameterized SQL because the ORM
                 # does not yet support cross-table JOINs.
@@ -68,20 +80,21 @@ async def handle_domains(
                     result.results if hasattr(result, 'results') else []
                 )
 
-                return Response.json({
+                return json_response({
                     "success": True,
                     "domain_id": int(domain_id),
                     "data": data,
                     "pagination": {
                         "page": page,
                         "per_page": per_page,
-                        "count": len(data)
+                        "count": len(data),
+                        "total": total,
+                        "total_pages": max(1, (total + per_page - 1) // per_page)
                     }
                 })
             except Exception as e:
-                return error_response(
-                    f"Failed to fetch domain tags: {str(e)}", status=500
-                )
+                logger.error(f"Error fetching domain tags: {str(e)}")
+                return error_response("Failed to fetch domain tags", status=500)
 
         # GET /domains/{id}
         try:
@@ -89,9 +102,10 @@ async def handle_domains(
             if not domain:
                 return error_response("Domain not found", status=404)
 
-            return Response.json({"success": True, "data": domain})
+            return json_response({"success": True, "data": domain})
         except Exception as e:
-            return error_response(f"Failed to fetch domain: {str(e)}", status=500)
+            logger.error(f"Error fetching domain: {str(e)}")
+            return error_response("Failed to fetch domain", status=500)
 
     # GET /domains  –  list with pagination
     try:
@@ -105,7 +119,7 @@ async def handle_domains(
             .all()
         )
 
-        return Response.json({
+        return json_response({
             "success": True,
             "data": data,
             "pagination": {
@@ -113,8 +127,9 @@ async def handle_domains(
                 "per_page": per_page,
                 "count": len(data),
                 "total": total,
-                "total_pages": (total + per_page - 1) // per_page if total > 0 else 0
+                "total_pages": max(1, (total + per_page - 1) // per_page)
             }
         })
     except Exception as e:
-        return error_response(f"Failed to fetch domains: {str(e)}", status=500)
+        logger.error(f"Error fetching domains: {str(e)}")
+        return error_response("Failed to fetch domains", status=500)

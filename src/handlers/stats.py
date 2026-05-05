@@ -75,7 +75,7 @@ async def handle_stats(
         db = await get_db_safe(env)
     except Exception as e:
         logger.error(f"Database connection error: {str(e)}")
-        return error_response(f"Database connection error: {str(e)}", status=500)
+        return error_response("Database connection error", status=500)
 
     try:
         counts: Dict[str, int] = {}
@@ -83,11 +83,14 @@ async def handle_stats(
 
         for table_name in _TABLES_TO_COUNT:
             try:
+                # table_name is from the hardcoded _TABLES_TO_COUNT allowlist above,
+                # so this f-string interpolation is safe from SQL injection.
                 result = await db.prepare(f"SELECT COUNT(*) as count FROM {table_name}").first()
                 row = await convert_single_d1_result(result)
                 counts[table_name] = int(row.get("count", 0))
             except Exception as e:
-                if "no such table" in str(e).lower():
+                error_msg = str(e).lower()
+                if "no such table" in error_msg or "table not found" in error_msg:
                     counts[table_name] = 0
                     logger.warning("Table not found while fetching stats: %s", table_name)
                 else:
@@ -112,4 +115,4 @@ async def handle_stats(
         )
     except Exception as e:
         logger.error(f"Error fetching stats: {str(e)}")
-        return error_response(f"Error fetching stats: {str(e)}", status=500)
+        return error_response("Error fetching stats", status=500)

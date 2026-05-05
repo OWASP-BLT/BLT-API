@@ -7,14 +7,13 @@ the OWASP BLT project, running efficiently on Cloudflare Workers.
 
 # Try to import Cloudflare Workers JS bindings
 try:
-    from js import Response, Headers, JSON # pyright: ignore[reportMissingImports]
+    from js import Response, Headers  # pyright: ignore[reportMissingImports]
     _WORKERS_RUNTIME = True
 except ImportError:
     _WORKERS_RUNTIME = False
     from utils import Response, Headers
 
 from workers import WorkerEntrypoint # type: ignore [as worker instance is available at runtime]
-from os import path
 from router import Router
 from handlers import (
     handle_bugs,
@@ -34,8 +33,8 @@ from handlers import (
     handle_verify_email,
     make_routes_handler
 )
-from utils import json_response, error_response, cors_headers
-from libs.db import get_db_safe 
+from utils import error_response, cors_headers
+from libs.db import get_db_safe
 
 # Initialize the router
 router = Router()
@@ -179,6 +178,8 @@ _add_v2_route("GET", "/repos/{id}", handle_repos)
 _add_v2_route("GET", "/routes", make_routes_handler(router))
 
 class Default(WorkerEntrypoint):
+    """Cloudflare Workers entry point for the BLT API."""
+    
     async def on_fetch(self, request):
         """
         Main entry point for Cloudflare Workers.
@@ -198,24 +199,21 @@ class Default(WorkerEntrypoint):
             if request.method == "OPTIONS":
                 return Response.new(
                     None,
-                    status=204,
-                    headers=Headers.new(cors_headers())
+                    {'status': 204, 'headers': Headers.new(list(cors_headers().items()))}
                 )
 
             await get_db_safe(self.env)  # Ensure database is available and initialized
         
-            # Get URL and method
-            url = request.url
-            method = request.method
-        
-
-            # Route the request
+# Route the request
             response = await router.handle(request, self.env)
             
             return response
             
         except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Unhandled exception: {str(e)}", exc_info=True)
             return error_response(
-                message=f"Internal Server Error: {str(e)}",
+                message="Internal Server Error",
                 status=500
             )

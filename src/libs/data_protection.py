@@ -24,14 +24,17 @@ def _get_secret_seed(env: Any) -> str:
 
 
 def _get_enc_key(env: Any) -> bytes:
+    """Derive encryption key from environment secret."""
     return _derive_key_material("enc:" + _get_secret_seed(env))
 
 
 def _get_mac_key(env: Any) -> bytes:
+    """Derive MAC key from environment secret."""
     return _derive_key_material("mac:" + _get_secret_seed(env))
 
 
 def _xor_bytes(data: bytes, key_stream: bytes) -> bytes:
+    """XOR two byte sequences for stream cipher encryption."""
     return bytes(a ^ b for a, b in zip(data, key_stream))
 
 
