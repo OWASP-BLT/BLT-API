@@ -79,7 +79,8 @@ async def handle_bugs(
                 d.url as domain_url 
             FROM bugs b   
             LEFT JOIN domains d ON b.domain = d.id
-            WHERE b.url LIKE ? OR b.description LIKE ?
+            WHERE (b.url LIKE ? OR b.description LIKE ?)
+            AND b.is_hidden = 0
             ORDER BY b.created DESC
             LIMIT ? OFFSET 0
         ''').bind(f"%{query}%", f"%{query}%", limit_int).all()
@@ -132,7 +133,7 @@ async def handle_bugs(
                 d.logo as domain_logo
             FROM bugs b
             LEFT JOIN domains d ON b.domain = d.id
-            WHERE b.id = ?
+            WHERE b.id = ? AND b.is_hidden = 0
         ''').bind(bug_id).first()
         
         # Convert JsProxy result directly to Python dict
@@ -299,13 +300,13 @@ async def handle_bugs(
 
     try:
         # Build ORM queryset for counting (safe parameterized filters)
-        count_qs = Bug.objects(db)
+        count_qs = Bug.objects(db).filter(is_hidden=0)
 
         # Build WHERE conditions for the JOIN list query simultaneously.
         # Field names here are hardcoded constants (not from user input), so
         # they are safe to embed in SQL.  Values come from query_params and
         # are always passed as bound parameters.
-        where_conditions = []
+        where_conditions = ["b.is_hidden = 0"]
         where_params = []
 
         status = query_params.get("status")
