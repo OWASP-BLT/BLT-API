@@ -59,10 +59,23 @@ _OPERATORS = {
 def _validate_identifier(name: str) -> str:
     """Validate that *name* is a safe SQL identifier.
 
-    Supports simple names (``id``) and table-qualified names (``b.id``).
+    Supports simple names (``id``), table-qualified names (``b.id``),
+    and aliased expressions (``table.col AS alias`` or ``table.col as alias``).
     Raises ``ValueError`` if *name* contains characters outside the safe set
     or is empty.
     """
+    # Support "col AS alias" or "table.col AS alias" syntax
+    parts = name.split()
+    if len(parts) == 3 and parts[1].lower() == "as":
+        for ident in (parts[0], parts[2]):
+            for part in ident.split("."):
+                if not part or not all(c in _SAFE_IDENT_CHARS for c in part):
+                    raise ValueError(
+                        f"Unsafe identifier {name!r}: only letters, digits and "
+                        "underscores are allowed."
+                    )
+        return name
+    # Original single-identifier path
     for part in name.split("."):
         if not part or not all(c in _SAFE_IDENT_CHARS for c in part):
             raise ValueError(
