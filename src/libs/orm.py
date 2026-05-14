@@ -135,6 +135,8 @@ class QuerySet:
         self._select_fields: List[str] = []
         # Each entry: (join_type, table, on_clause)
         self._joins: List[Tuple[str, str, str]] = []
+        # Each entry is a list of (field, operator, value) — joined with OR
+        self._or_filters: List[List[Tuple[str, str, Any]]] = []
 
     # ------------------------------------------------------------------
     # Cloning
@@ -149,6 +151,7 @@ class QuerySet:
         qs._order_by_fields = list(self._order_by_fields)
         qs._select_fields = list(self._select_fields)
         qs._joins = list(self._joins)
+        qs._or_filters = [list(group) for group in self._or_filters]
         return qs
 
     # ------------------------------------------------------------------
@@ -167,6 +170,28 @@ class QuerySet:
         for key, value in kwargs.items():
             field, op = self._parse_lookup(key)
             qs._filters.append((field, op, value))
+        return qs
+
+    def filter_or(self, **kwargs: Any) -> "QuerySet":
+        """Add a group of OR conditions to the query.
+
+        All keyword conditions within a single ``filter_or()`` call are
+        combined with ``OR``. Multiple ``filter_or()`` calls are combined
+        with ``AND``.
+
+        Example::
+
+            # WHERE (name LIKE ? OR slug LIKE ? OR description LIKE ?)
+            qs.filter_or(name__icontains=search, slug__icontains=search,
+                         description__icontains=search)
+        """
+        qs = self._clone()
+        group = []
+        for key, value in kwargs.items():
+            field, op = self._parse_lookup(key)
+            group.append((field, op, value))
+        if group:
+            qs._or_filters.append(group)
         return qs
 
     def exclude(self, **kwargs: Any) -> "QuerySet":
@@ -200,9 +225,32 @@ class QuerySet:
         return qs
 
     def values(self, *fields: str) -> "QuerySet":
-        """Select only the specified columns (validated identifiers)."""
+        """Select only the specified columns (validated identifiers).
+
+        Supports aliased columns using SQL ``AS`` syntax:
+        ``'table.column AS alias'``. The split is case-insensitive and
+        whitespace-tolerant. Aliases must be simple identifiers (no dots).
+        Both column and alias are validated as safe identifiers.
+        """
         qs = self._clone()
-        qs._select_fields = [_validate_identifier(f) for f in fields]
+        validated = []
+        for f in fields:
+            # Case-insensitive, whitespace-tolerant split on first AS
+            parts = re.split(r'\s+[Aa][Ss]\s+', f.strip(), maxsplit=1)
+            if len(parts) == 2:
+                col, alias = parts[0].strip(), parts[1].strip()
+                _validate_identifier(col)
+                # Alias must be a simple identifier — no dots allowed
+                if '.' in alias:
+                    raise ValueError(
+                        f"Alias {alias!r} must be a simple identifier "
+                        "without dots."
+                    )
+                _validate_identifier(alias)
+                validated.append(f"{col} AS {alias}")
+            else:
+                validated.append(_validate_identifier(f))
+        qs._select_fields = validated
         return qs
 
     def join(
@@ -331,6 +379,15 @@ class QuerySet:
             cond, p = self._build_condition(field, op, value)
             conditions.append(f"NOT ({cond})")
             params.extend(p)
+
+        for or_group in self._or_filters:
+            or_parts = []
+            for field, op, value in or_group:
+                cond, p = self._build_condition(field, op, value)
+                or_parts.append(cond)
+                params.extend(p)
+            if or_parts:
+                conditions.append("(" + " OR ".join(or_parts) + ")")
 
         if conditions:
             return "WHERE " + " AND ".join(conditions), params
