@@ -84,3 +84,23 @@ class UserBugSave(Model):
 class UserBugFlag(Model):
     """Maps to the ``user_bug_flags`` junction table."""
     table_name = "user_bug_flags"
+
+
+class Organization(Model):
+    """Maps to the ``organization`` table."""
+    table_name = "organization"
+
+
+class OrganizationManager(Model):
+    """Maps to the ``organization_managers`` junction table."""
+    table_name = "organization_managers"
+
+
+class OrganizationTag(Model):
+    """Maps to the ``organization_tags`` junction table."""
+    table_name = "organization_tags"
+
+
+class OrganizationIntegration(Model):
+    """Maps to the ``organization_integrations`` table."""
+    table_name = "organization_integrations"

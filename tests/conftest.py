@@ -10,24 +10,29 @@ from pathlib import Path
 src_path = Path(__file__).parent.parent / "src"
 sys.path.insert(0, str(src_path))
 
-
-# Provide a lightweight `workers` module for local/CI test runs where the
-# Cloudflare runtime package is unavailable.
+# Provide a lightweight `workers` module shim for tests that import handlers
+# which depend on the Cloudflare Workers runtime.
+import types as _types
 if "workers" not in sys.modules:
-	workers_mod = types.ModuleType("workers")
+    _workers_mod = _types.ModuleType("workers")
 
-	class WorkerEntrypoint:  # pragma: no cover - shim for imports only
-		pass
+    class _Response:
+        def __init__(self, body=None, status=200, headers=None):
+            self.body = body
+            self.status_code = status
+            self.status = status
+            self.headers = headers or {}
 
-	class Response:  # pragma: no cover - shim for imports only
-		@staticmethod
-		def json(data, status=200, headers=None):
-			return {"status": status, "headers": headers or {}, "data": data}
+        @staticmethod
+        def json(data, status=200, **kwargs):
+            import json as _json
+            r = _Response(_json.dumps(data), status, kwargs.get("headers"))
+            return r
 
-		@staticmethod
-		def new(body=None, status=200, headers=None):
-			return {"status": status, "headers": headers or {}, "body": body}
+        @staticmethod
+        def new(body=None, status=200, headers=None):
+            return _Response(body, status, headers)
 
-	setattr(workers_mod, "WorkerEntrypoint", WorkerEntrypoint)
-	setattr(workers_mod, "Response", Response)
-	sys.modules["workers"] = workers_mod
+    _workers_mod.Response = _Response
+    _workers_mod.WorkerEntrypoint = type("WorkerEntrypoint", (), {})
+    sys.modules["workers"] = _workers_mod
