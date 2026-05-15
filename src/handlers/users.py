@@ -7,7 +7,7 @@ import re
 import secrets
 import time
 from typing import Any, Dict
-from utils import error_response, parse_pagination_params, convert_d1_results, parse_json_body, check_required_fields
+from utils import error_response, parse_pagination_params, convert_d1_results, parse_json_body, check_required_fields, require_api_key
 from libs.db import get_db_safe
 from libs.constant import __HASHING_ITERATIONS
 from libs.data_protection import encrypt_sensitive, decrypt_sensitive, blind_index
@@ -247,6 +247,9 @@ async def handle_users(
             return error_response("Method Not Allowed", status=405, headers={"Allow": "GET"})
 
         if method == "POST":
+            api_key_error = require_api_key(request, env)
+            if api_key_error:
+                return api_key_error
             return await create_user(db, request, env, logger)
 
         # Get specific user

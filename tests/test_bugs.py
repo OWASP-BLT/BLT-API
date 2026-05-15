@@ -97,9 +97,10 @@ class MockDB:
 
 
 class MockRequest:
-    def __init__(self, method="GET", body=None):
+    def __init__(self, method="GET", body=None, headers=None):
         self.method = method
         self._body = body
+        self.headers = headers or {}
 
     async def text(self):
         if self._body is None:
@@ -111,6 +112,10 @@ class MockRequest:
 
 class MockEnv:
     pass
+
+
+class MockApiKeyEnv:
+    BLT_API_KEY = "secret-key"
 
 
 def _make_mock_bug_class(count=0):
@@ -209,6 +214,38 @@ class TestGetBugById:
 
 
 class TestCreateBug:
+    async def test_configured_api_key_is_required(self):
+        db = MockDB()
+        with patch("handlers.bugs.get_db_safe", AsyncMock(return_value=db)):
+            resp = await handle_bugs(
+                MockRequest(
+                    method="POST",
+                    body={"url": "https://example.com", "description": "d"},
+                ),
+                MockApiKeyEnv(),
+                {},
+                {},
+                "/bugs",
+            )
+        assert resp.status == 401
+
+    async def test_configured_api_key_allows_create(self):
+        db = MockDB()
+        db.queue_first({"id": 1}, {"id": 1, "url": "https://example.com", "description": "d"})
+        with patch("handlers.bugs.get_db_safe", AsyncMock(return_value=db)):
+            resp = await handle_bugs(
+                MockRequest(
+                    method="POST",
+                    body={"url": "https://example.com", "description": "d"},
+                    headers={"X-API-Key": "secret-key"},
+                ),
+                MockApiKeyEnv(),
+                {},
+                {},
+                "/bugs",
+            )
+        assert resp.status == 201
+
     async def test_empty_body_returns_400(self):
         db = MockDB()
         with patch("handlers.bugs.get_db_safe", AsyncMock(return_value=db)):

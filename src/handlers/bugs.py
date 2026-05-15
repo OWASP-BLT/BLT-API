@@ -3,7 +3,7 @@ Bugs handler for the BLT API.
 """
 
 from typing import Any, Dict
-from utils import error_response, parse_pagination_params, parse_json_body, convert_d1_results
+from utils import error_response, parse_pagination_params, parse_json_body, convert_d1_results, require_api_key
 from libs.db import get_db_safe
 from models import Bug
 from workers import Response
@@ -178,6 +178,10 @@ async def handle_bugs(
     
     # Create bug
     if method == "POST":
+        api_key_error = require_api_key(request, env)
+        if api_key_error:
+            return api_key_error
+
         body = await parse_json_body(request)
         
         if not body:

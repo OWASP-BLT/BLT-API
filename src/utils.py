@@ -6,6 +6,7 @@ CORS headers, and HTTP client operations.
 """
 
 from typing import Any, Dict, List, Optional
+import hmac
 import json
 # Try to import Cloudflare Workers JS bindings
 # Falls back to mock implementations for testing
@@ -46,7 +47,7 @@ def cors_headers() -> Dict[str, str]:
     return {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-API-Key, X-Requested-With",
         "Access-Control-Max-Age": "86400",
     }
 
@@ -233,6 +234,54 @@ def get_blt_website_url(env: Any) -> str:
         return str(env.BLT_WEBSITE_URL)
     except AttributeError:
         return "https://owaspblt.org"
+
+
+def get_header(request: Any, name: str) -> str:
+    """Read a request header from Workers or test request objects."""
+    headers = getattr(request, "headers", None)
+    if headers and hasattr(headers, "get"):
+        value = headers.get(name)
+        if value is None and name.lower() != name:
+            value = headers.get(name.lower())
+        return str(value) if value is not None else ""
+    return ""
+
+
+def get_configured_api_key(env: Any) -> str:
+    """Return the configured API key, supporting legacy and explicit names."""
+    for name in ("BLT_API_KEY", "API_KEY"):
+        value = getattr(env, name, "")
+        if value:
+            return str(value)
+    return ""
+
+
+def extract_api_key(request: Any) -> str:
+    """Extract an API key from X-API-Key or common Authorization schemes."""
+    api_key = get_header(request, "X-API-Key").strip()
+    if api_key:
+        return api_key
+
+    authorization = get_header(request, "Authorization").strip()
+    if not authorization:
+        return ""
+
+    parts = authorization.split(None, 1)
+    if len(parts) == 2 and parts[0].lower() in {"apikey", "token", "bearer"}:
+        return parts[1].strip()
+    return ""
+
+
+def require_api_key(request: Any, env: Any) -> Optional[Response]:
+    """Validate API key when one is configured; otherwise stay permissive."""
+    expected_key = get_configured_api_key(env)
+    if not expected_key:
+        return None
+
+    provided_key = extract_api_key(request)
+    if not provided_key or not hmac.compare_digest(provided_key, expected_key):
+        return error_response("Invalid or missing API key", status=401)
+    return None
 
 
 async def parse_json_body(request: Any) -> Optional[Dict[str, Any]]:

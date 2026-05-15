@@ -6,7 +6,9 @@ import pytest
 import json
 from src.utils import (
     cors_headers,
+    extract_api_key,
     parse_pagination_params,
+    require_api_key,
 )
 
 
@@ -40,6 +42,45 @@ class TestCorsHeaders:
         assert "Access-Control-Allow-Headers" in headers
         assert "Content-Type" in headers["Access-Control-Allow-Headers"]
         assert "Authorization" in headers["Access-Control-Allow-Headers"]
+        assert "X-API-Key" in headers["Access-Control-Allow-Headers"]
+
+
+class MockRequest:
+    def __init__(self, headers=None):
+        self.headers = headers or {}
+
+
+class MockEnv:
+    BLT_API_KEY = "secret-key"
+
+
+class TestApiKeySupport:
+    """Tests for API key extraction and validation."""
+
+    def test_extract_api_key_from_x_api_key(self):
+        request = MockRequest({"X-API-Key": "secret-key"})
+        assert extract_api_key(request) == "secret-key"
+
+    def test_extract_api_key_from_authorization_token(self):
+        request = MockRequest({"Authorization": "Token secret-key"})
+        assert extract_api_key(request) == "secret-key"
+
+    def test_extract_api_key_from_authorization_bearer(self):
+        request = MockRequest({"Authorization": "Bearer secret-key"})
+        assert extract_api_key(request) == "secret-key"
+
+    def test_require_api_key_allows_matching_key(self):
+        request = MockRequest({"X-API-Key": "secret-key"})
+        assert require_api_key(request, MockEnv()) is None
+
+    def test_require_api_key_rejects_missing_key(self):
+        request = MockRequest()
+        response = require_api_key(request, MockEnv())
+        assert response.status == 401
+
+    def test_require_api_key_is_disabled_when_not_configured(self):
+        request = MockRequest()
+        assert require_api_key(request, object()) is None
 
 
 class TestPaginationParams:
