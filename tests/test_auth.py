@@ -36,7 +36,7 @@ sys.modules["workers"] = _mock_workers
 # Removed sys.modules.js mock to allow utils.py fallback
 
 
-from handlers.auth import handle_signin, handle_signup, handle_verify_email  # noqa: E402
+from handlers.auth import handle_signin, handle_signup, handle_verify_email, SIGNUP_RATE_LIMIT, SIGNIN_RATE_LIMIT  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -75,6 +75,18 @@ class MockEnv:
     BLT_API_BASE_URL = "http://localhost:8787"
     MAILGUN_API_KEY = "test-key"
     MAILGUN_DOMAIN = "test.mailgun.org"
+    SENDGRID_USERNAME = "test-sendgrid-user"
+    SENDGRID_PASSWORD = "test-sendgrid-pass"
+    FROM_EMAIL = "noreply@example.com"
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limits():
+    SIGNUP_RATE_LIMIT.clear()
+    SIGNIN_RATE_LIMIT.clear()
+    yield
+    SIGNUP_RATE_LIMIT.clear()
+    SIGNIN_RATE_LIMIT.clear()
 
 
 def _make_mock_user(is_active=True, password="testpass123456"):
@@ -228,6 +240,31 @@ class TestSigninValidation:
 
         assert resp.status == 500
 
+    @pytest.mark.asyncio
+    async def test_signin_is_rate_limited_after_burst(self, monkeypatch):
+        monkeypatch.setattr("handlers.auth._SIGNIN_MAX_REQUESTS", 2)
+        user = _make_mock_user(is_active=True)
+        mock_user_cls = MagicMock()
+        mock_qs = MagicMock()
+        mock_qs.filter.return_value = mock_qs
+        mock_qs.first = AsyncMock(return_value=user)
+        mock_user_cls.objects.return_value = mock_qs
+
+        body = {"username": "testuser", "password": "testpass123456"}
+        request = MockRequest(method="POST", body=body)
+
+        with patch("handlers.auth.get_db_safe", AsyncMock(return_value=MagicMock())), \
+             patch("handlers.auth.User", mock_user_cls), \
+             patch("handlers.auth.__HASHING_ITERATIONS", HASHING_ITERATIONS), \
+             patch("handlers.auth.create_access_token", return_value="fake.jwt.token"):
+            first = await handle_signin(request, MockEnv(), {}, {}, "/auth/signin")
+            second = await handle_signin(request, MockEnv(), {}, {}, "/auth/signin")
+            third = await handle_signin(request, MockEnv(), {}, {}, "/auth/signin")
+
+        assert first.status == 200
+        assert second.status == 200
+        assert third.status == 429
+
 
 # ─── handle_signup tests ────────────────────────────────────────────────
 
@@ -253,6 +290,37 @@ class TestSignupValidation:
         with patch("handlers.auth.check_required_fields", AsyncMock(return_value=(False, "email"))):
             resp = await handle_signup(request, MockEnv(), {}, {}, "/auth/signup")
         assert resp.status == 400
+
+    @pytest.mark.asyncio
+    async def test_signup_is_rate_limited_after_burst(self, monkeypatch):
+        monkeypatch.setattr("handlers.auth._SIGNUP_MAX_REQUESTS", 2)
+        body = {"username": "user123", "password": "Testpass123456!", "email": "user@example.com"}
+        request = MockRequest(method="POST", body=body)
+
+        with patch("handlers.auth.get_db_safe", AsyncMock(return_value=MagicMock())), \
+             patch("handlers.auth.check_required_fields", AsyncMock(return_value=(True, None))), \
+             patch("handlers.auth.blind_index", side_effect=lambda value, *_args, **_kwargs: f"{value}-hash"), \
+             patch("handlers.auth.encrypt_sensitive", side_effect=lambda value, *_args, **_kwargs: value), \
+             patch("handlers.auth.User") as mock_user_cls, \
+             patch("handlers.auth.EmailService") as mock_email_service, \
+             patch("handlers.auth.generate_jwt_token", return_value="fake.token"):
+            mock_qs = MagicMock()
+            mock_qs.filter.return_value = mock_qs
+            mock_qs.first = AsyncMock(return_value=None)
+            mock_qs.delete = AsyncMock()
+            mock_user_cls.objects.return_value = mock_qs
+            mock_user_cls.create = AsyncMock(return_value={"id": 1})
+            email_instance = MagicMock()
+            email_instance.send_verification_email = AsyncMock(return_value=(200, "ok"))
+            mock_email_service.return_value = email_instance
+
+            first = await handle_signup(request, MockEnv(), {}, {}, "/auth/signup")
+            second = await handle_signup(request, MockEnv(), {}, {}, "/auth/signup")
+            third = await handle_signup(request, MockEnv(), {}, {}, "/auth/signup")
+
+        assert first.status == 201
+        assert second.status == 201
+        assert third.status == 429
 
 
 # ─── handle_verify_email tests ──────────────────────────────────────────
